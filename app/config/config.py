@@ -17,6 +17,7 @@ class Settings:
     VIDEO_FILE_PATH: str = config_secret_common["video_file_path"]
     AUDIO_FILE_PATH: str = config_secret_common["audio_file_path"]
     SCRIPT_FILE_PATH: str = config_secret_common["script_file_path"]
+    CLIP_FILE_PATH: str = config_secret_common["clip_file_path"]
 
 
 settings = Settings()
