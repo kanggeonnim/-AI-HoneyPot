@@ -28,10 +28,11 @@ async def translate_by_gpt_router(category: str, req: GptRequestSch):
     # 결과를 리턴합니다
     try:
         json_data = json.loads(openai_result)
-    except json.JSONDecodeError:
+    except json.JSONDecodeError as e:
         json_data = {"error": "Failed to decode JSON"}
+        print(e)
         return openai_result
-    
+
     return JSONResponse(content=json_data)
 
 
