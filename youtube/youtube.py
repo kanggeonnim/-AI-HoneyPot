@@ -33,10 +33,15 @@ def download_list():
 def download_video(path):
     video_url = 'https://www.youtube.com/watch?v=' + path
     yt = YouTube(video_url)
+
+    # 쇼츠는 제외
+    if yt.length <= 60 or yt.length > 2400:
+        return
+
     try:
+
         t = (yt.streams.filter(progressive=True, file_extension='mp4').order_by('resolution').desc().first()
              .download(video_path))
-
     except Exception as e:
         print(e)
         print("No video: " + video_url)
@@ -86,19 +91,18 @@ def audio_to_text_model():
         f.close()
 
         # delete audio
-        delete_file(audio_file)
-
-        break
+        # delete_file(audio_file)
 
 
 def summary_script(file):
+    print("요약 문서: " + file)
     # 문서요약하기
     with open(file, "r",
               encoding="utf-8") as f:
         read_text = f.read()
 
     text_splitter = CharacterTextSplitter.from_tiktoken_encoder(
-        chunk_size=3000, chunk_overlap=0
+        chunk_size=4000, chunk_overlap=0
     )
 
     docs = [Document(page_content=x) for x in text_splitter.split_text(read_text)]
@@ -112,19 +116,37 @@ def summary_script(file):
         {docs}
         이 문서 목록을 기반으로 주요 테마를 식별해 주세요.
         주요 테마에는 해당 타임스탬프도 같이 포함해 주세요.
+        타임스탬프 형식은 (시작: 0.123, 끝: 130.643) 입니다.
+        차근차근 단계적으로 생각해주세요.
+        아래는 예시 입니다. 
+        이종섭 논란 '수사 vs 해임', 야 '이종섭 책임' 파상공세 (시작: 65.514, 끝: 338.186)
         도움이 되는 답변:"""
+
+    # + 주요 테마에 대해서 예시 추가하기.
     map_prompt = PromptTemplate.from_template(map_template)
 
     # Reduce 프롬프트
     reduce_template = """다음은 여러 개의 요약입니다:
         {doc_summaries}
-        이 요약들을 바탕으로 주요 테마를 최종적으로 세개에서 다섯개의 중요한 단락으로 타임스탬프를 포함해서 요약해 주세요.
+        이 요약들을 바탕으로 주요 테마를 최종적으로 세개에서 다섯개의 중요한 단락으로 요약해 주세요.
+        주요 테마에는 타임스탬프도 같이 포함해 주세요.
+        타임스탬프 형식은 (시작: 0.123, 끝: 130.643) 입니다. 
+        주요 테마에는 중복이 없도록 하고 길이가 5분이 넘지않도록 해주세요.
+        차근차근 단계적으로 생각해주세요.
         아래는 예시입니다.
         1. 충청지역 정치적 성향 변화와 선거구의 부동층과 영향 요소에 대한 분석 (시작: 49.514, 끝: 186.186)
         2. R&D 예산 복원과 충청권 민심에 대한 논의 (시작: 186.186, 끝: 270.043)
         3. 세종과 대전의 선거전략, 대전 동구와 대덕의 대결, 그리고 새로운 미래 후보의 출마와 기대감에 대한 전망 (시작: 1050.077, 끝: 1237.415)
         4. 새로운 미래의 충청권 지지율 변화와 민주당과 국민의힘의 선거전략에 대한 분석 (시작: 1425.623, 끝: 1505.247)
         도움이 되는 답변:"""
+
+    # 방법 1.
+    # 요약을 먼저하고 (타임스탬프 미포함)
+    # 스크립트에서 해당 주제에 관련된 부분을 찾기
+
+    # 방법 2.
+    # 문단 별로 스크립트를 요약하고 타임스탬프를 기입하기
+    # 요약된 스크립트 리스트에서 중요하다고 생각하는 부분을 뽑아내기
     reduce_prompt = PromptTemplate.from_template(reduce_template)
 
     # 1. Reduce chain
@@ -150,36 +172,44 @@ def summary_script(file):
         return_intermediate_steps=False,
     )
 
-    sum_result = map_reduce_chain.run(split_docs)
-    print(sum_result)
-    return sum_result
+    try:
+        sum_result = map_reduce_chain.run(split_docs)
+
+        return sum_result
+
+    except Exception as e:
+        print(e)
+        print("To Long Text: " + file)
 
 
 def divide_video():
     dir_list = os.listdir(script_path)
-    # for path in dir_list:
-    # sum_result = summary_script("./whisper/script/R&D 삭감에 분노한 충청···김성완 표심에 악영향 이종훈 이상민 고전 (24318)  총선핫플  국회라이브6.txt")
-    sum_result = """1. 충청지역 정치적 성향 변화와 선거구의 부동층과 영향 요소에 대한 분석 (시작: 49.514, 끝: 186.186)
-2. R&D 예산 복원과 충청권 민심에 대한 논의 (시작: 186.186, 끝: 250.077)
-3. 충청권 선거 결과 예측과 대전, 세종을 중심으로 한 선거 대결 (시작: 250.077, 끝: 500.486)
-4. 새로운 미래 후보의 출마와 지역별 기대감, 그리고 민주당과 국민의힘의 선거 전략과 경쟁 (시작: 500.486, 끝: 987.756)
-5. 새로운 미래 후보의 영향력과 선거 결과 예측, 그리고 제3지대의 역할과 충청권 선거 동향 (시작: 987.756, 끝: 1455.213)"""
-    sum_list = sum_result.split("\n")
-    for (index, line) in enumerate(sum_list):
-        start = line.find('시작:')
-        end = line.find('끝:')
-        sub = line[3:start - 2]
-        start_time = time_formatter(line[start + 4:end - 2])
-        end_time = time_formatter(line[end + 3: -1])
-        print(sub)
-        print(start_time)
-        print(end_time)
+    for path in dir_list:
+        sum_result = summary_script(script_path + path[:-4] + ".txt")
+        # sum_result = summary_script("./whisper/script/R&D 삭감에 분노한 충청···김성완 표심에 악영향 이종훈 이상민 고전 (24318)  총선핫플  국회라이브6.txt")
+        #     sum_result = """1. 충청지역 정치적 성향 변화와 선거구의 부동층과 영향 요소에 대한 분석 (시작: 49.514, 끝: 186.186)
+        # 2. R&D 예산 복원과 충청권 민심에 대한 논의 (시작: 186.186, 끝: 250.077)
+        # 3. 충청권 선거 결과 예측과 대전, 세종을 중심으로 한 선거 대결 (시작: 250.077, 끝: 500.486)
+        # 4. 새로운 미래 후보의 출마와 지역별 기대감, 그리고 민주당과 국민의힘의 선거 전략과 경쟁 (시작: 500.486, 끝: 987.756)
+        # 5. 새로운 미래 후보의 영향력과 선거 결과 예측, 그리고 제3지대의 역할과 충청권 선거 동향 (시작: 987.756, 끝: 1455.213)"""
+        sum_list = sum_result.split("\n")
+        for (index, line) in enumerate(sum_list):
+            start = line.find('시작:')
+            end = line.find('끝:')
+            sub = line[3:start - 2]
+            start_time = time_formatter(line[start + 4:end - 2])
+            end_time = time_formatter(line[end + 3: -1])
 
-        # 영상 자르기
-        clip_video = VideoFileClip(
-            video_path + "R&D 삭감에 분노한 충청···김성완 표심에 악영향 이종훈 이상민 고전 (24318)  총선핫플  국회라이브6" + ".mp4").subclip(
-            start_time, end_time)
-        clip_video.write_videofile(clip_path + sub + ".mp4", codec='libx264')
+            # 영상 자르기
+            # clip_video = VideoFileClip(
+            # video_path + "R&D 삭감에 분노한 충청···김성완 표심에 악영향 이종훈 이상민 고전 (24318)  총선핫플  국회라이브6" + ".mp4").subclip(
+            # start_time, end_time)
+            try:
+                clip_video = VideoFileClip(video_path + path[:-4] + ".mp4").subclip(start_time, end_time)
+                clip_video.write_videofile(clip_path + sub + ".mp4", codec='libx264')
+            except Exception as e:
+                print(e)
+                print("Fail to Edit VIDEO: " + path[:-4] + ".mp4")
 
 
 def time_formatter(only_second):
@@ -191,7 +221,8 @@ def time_formatter(only_second):
 
 
 if __name__ == '__main__':
-    # download_list()
-    # video_to_audio()
-    # audio_to_text_model()
+    download_list()
+    video_to_audio()
+    audio_to_text_model()
     divide_video()
+    # summary_script("./whisper/script/정봉주·조수진 강북을 잔혹사…장윤미 잘못 인정 함인경 박용진 죽이기 (24322)  여심저격  국회라이브6.txt")
