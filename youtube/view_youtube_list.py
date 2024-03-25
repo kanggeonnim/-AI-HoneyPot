@@ -2,10 +2,12 @@ from googleapiclient.discovery import build
 from googleapiclient.errors import HttpError
 from datetime import datetime, timedelta
 import os
-
+from app.config.config import settings
 # YouTube Data API의 API key를 입력합니다.
 
 from videoInfo import videoInfo
+
+youtube_api_key = settings.YOUTUBE_API_KEY
 
 
 def get_youtube_list():
@@ -14,7 +16,7 @@ def get_youtube_list():
     #   국회방송NATV
 
     # YouTube Data API 클라이언트를 빌드합니다.
-    youtube = build('youtube', 'v3', developerKey=os.getenv('YOUTUBE_API_KEY'))
+    youtube = build('youtube', 'v3', developerKey=youtube_api_key)
 
     beforeVideos = []
 
@@ -35,7 +37,7 @@ def get_youtube_list():
         for item in response['items']:
             video_title = item['snippet']['title']
             published_at = item['snippet']['publishTime'][0:10]
-            today = (datetime.today() - timedelta(days=1)).strftime("%Y-%m-%d")
+            today = (datetime.today() - timedelta(days=3)).strftime("%Y-%m-%d")
             live_broadcast = item['snippet']['liveBroadcastContent']
             tumblr_url = item['snippet']['thumbnails']['high']
             video_id = item['id']['videoId']
