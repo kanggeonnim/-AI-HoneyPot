@@ -13,7 +13,7 @@ from openai import OpenAI
 from pytube import YouTube
 
 import view_youtube_list
-from app.config.config import settings
+from ai.app.config.config import settings
 
 os.environ['PATH'] += os.pathsep + 'C:\Program Files\\ffmpeg-6.1.1-full_build-shared\\bin'
 
