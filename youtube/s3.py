@@ -1,3 +1,4 @@
+import os
 import uuid
 import boto3
 import mysql.connector
@@ -5,12 +6,15 @@ import cv2
 from moviepy.editor import VideoFileClip
 
 from botocore.exceptions import ClientError  # boto3에서 발생하는 예외를 처리하기 위해 추가
+from openai import OpenAI
+
 from ai.app.config.config import settings
 
 AWS_ACCESS_KEY_ID = settings.AWS_ACCESS_KEY_ID
 AWS_SECRET_ACCESS_KEY = settings.AWS_SECRET_ACCESS_KEY
 AWS_DEFAULT_REGION = settings.AWS_DEFAULT_REGION
 
+clip_path = settings.CLIP_FILE_PATH
 
 def s3_connection():
     try:
@@ -47,6 +51,26 @@ def upload_file_to_s3(file_name, bucket, key):
         print(f"Error uploading file to S3: {e}")
         return False
 
+def create_keywords():
+    # OpenAI API 키 인증
+    client = OpenAI(api_key=settings.OPENAI_API_KEY)
+
+    # 모델 - GPT 3.5 Turbo 선택
+    model = "gpt-3.5-turbo-0125"
+
+    # 메시지 설정
+    messages = [{
+        "role": "user",
+        "content": pre_prompt + req.content,
+    }]
+
+    # ChatGPT API 호출
+    response = client.chat.completions.create(
+        model=model, messages=messages
+    )
+    openai_result = response.choices[0].message.content
+
+    return openai_result
 
 def connect_to_mysql():
     try:
@@ -68,9 +92,11 @@ def create_table(connection):
         cursor = connection.cursor()
         cursor.execute("""
             CREATE TABLE IF NOT EXISTS s3_files (
-                id INT AUTO_INCREMENT PRIMARY KEY,
-                file_name VARCHAR(255) NOT NULL,
-                s3_key VARCHAR(255) NOT NULL
+                id LONG AUTO_INCREMENT PRIMARY KEY,
+                video_name VARCHAR(255) NOT NULL,
+                video_key VARCHAR(255) NOT NULL,
+                image_name VARCHAR(255) NOT NULL,
+                image_key VARCHAR(255) NOT NULL
             )
         """)
         connection.commit()
@@ -79,12 +105,12 @@ def create_table(connection):
         print(f"Error creating table: {e}")
 
 
-def insert_file_metadata(connection, file_name, s3_key):
+def insert_file_metadata(connection, video_name, video_key, image_name, image_key):
     try:
         cursor = connection.cursor()
         cursor.execute("""
-            INSERT INTO s3_files (file_name, s3_key) VALUES (%s, %s)
-        """, (file_name, s3_key))
+            INSERT INTO s3_files (video_name, video_key, image_name, image_key) VALUES (%s, %s)
+        """, (video_name, video_key, image_name, image_key))
         connection.commit()
         print("File metadata inserted into MySQL database successfully!")
     except mysql.connector.Error as e:
@@ -101,16 +127,30 @@ def generate_thumbnail(video_path, thumbnail_path, time_in_seconds):
     else:
         print("Failed to generate thumbnail.")
 
+
 def main():
+    dir_list = os.listdir(clip_path)
+    # for path in dir_list:
+    #     if path.endswith('.mp4'):
     try:
         # S3에 파일 업로드
+        path = "./whisper/clip_video/선거운동 규정 변화와 이에 따른 영향.mp4"
         unique_id = generate_unique_id()
-        file_name = './whisper/clip_video/이종섭 호주대사 임명과 관련된 논란.mp4'
+        video_name = f'./whisper/{path}'
+        image_name = f'./whisper/{path[:-4]}.jpg'
         bucket = 'yeouido-honeypot'
-        key = f'videos/{unique_id}이종섭 호주대사 임명과 관련된 논란.mp4'
-        upload_successful = upload_file_to_s3(file_name, bucket, key)
+        video_key = f'videos/{unique_id}.mp4'
+        image_key = f'images/{unique_id}.jpg'
+        # thumnail 생성
+        generate_thumbnail(video_name, f'{unique_id}.jpg', 10)  # 10초 시점의 썸네일 생성
 
-        if upload_successful:
+        # 영상 업로드
+        video_upload_successful = upload_file_to_s3(video_name, bucket, video_key)
+        # thumnail 업로드
+        image_upload_successful = upload_file_to_s3(image_name, bucket, image_key)
+
+
+        if video_upload_successful and image_upload_successful:
             # MySQL 연결
             connection = connect_to_mysql()
             if connection:
@@ -118,7 +158,7 @@ def main():
                 create_table(connection)
 
                 # 파일 메타데이터 삽입
-                insert_file_metadata(connection, file_name, key)
+                insert_file_metadata(connection, video_name, video_key, image_name, image_key)
 
                 # 연결 종료
                 connection.close()
@@ -131,7 +171,7 @@ def main():
 
 
 if __name__ == "__main__":
-    # main()
+    main()
     # 예시 사용법
-    generate_thumbnail("./whisper/clip_video/선거운동 규정 변화와 이에 따른 영향.mp4", "./whisper/clip_video/선거운동영향.jpg",
-                       10)  # 10초 시점의 썸네일 생성
+    # generate_thumbnail("./whisper/clip_video/선거운동 규정 변화와 이에 따른 영향.mp4", "test1.jpg", 10)  # 10초 시점의 썸네일 생성
+
