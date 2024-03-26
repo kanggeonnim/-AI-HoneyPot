@@ -2,7 +2,7 @@ from googleapiclient.discovery import build
 from googleapiclient.errors import HttpError
 from datetime import datetime, timedelta
 import os
-from app.config.config import settings
+from ai.app.config.config import settings
 # YouTube Data API의 API key를 입력합니다.
 
 from videoInfo import videoInfo
