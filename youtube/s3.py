@@ -51,26 +51,6 @@ def upload_file_to_s3(file_name, bucket, key):
         print(f"Error uploading file to S3: {e}")
         return False
 
-def create_keywords():
-    # OpenAI API 키 인증
-    client = OpenAI(api_key=settings.OPENAI_API_KEY)
-
-    # 모델 - GPT 3.5 Turbo 선택
-    model = "gpt-3.5-turbo-0125"
-
-    # 메시지 설정
-    messages = [{
-        "role": "user",
-        "content": pre_prompt + req.content,
-    }]
-
-    # ChatGPT API 호출
-    response = client.chat.completions.create(
-        model=model, messages=messages
-    )
-    openai_result = response.choices[0].message.content
-
-    return openai_result
 
 def connect_to_mysql():
     try:
