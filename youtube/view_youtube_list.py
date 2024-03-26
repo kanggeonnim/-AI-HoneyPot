@@ -37,7 +37,7 @@ def get_youtube_list():
         for item in response['items']:
             video_title = item['snippet']['title']
             published_at = item['snippet']['publishTime'][0:10]
-            today = (datetime.today() - timedelta(days=3)).strftime("%Y-%m-%d")
+            today = (datetime.today() - timedelta(days=1)).strftime("%Y-%m-%d")
             live_broadcast = item['snippet']['liveBroadcastContent']
             tumblr_url = item['snippet']['thumbnails']['high']
             video_id = item['id']['videoId']
@@ -50,6 +50,10 @@ def get_youtube_list():
                 # print(published_at)
                 # print("==============================")
         print(videos)
+
+        if len(videos) == 0:
+            raise Exception("No videos found")
+
         return videos
         # beforeVideos.append(video_title)
 
