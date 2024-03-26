@@ -169,9 +169,9 @@ def main():
                 generate_thumbnail(video_name, f'{image_name}', 10)  # 10초 시점의 썸네일 생성
 
                 # 영상 업로드
-                # video_upload_successful = upload_file_to_s3(video_name, bucket, video_key)
+                video_upload_successful = upload_file_to_s3(video_name, bucket, video_key)
                 # thumnail 업로드
-                # image_upload_successful = upload_file_to_s3(image_name, bucket, image_key)
+                image_upload_successful = upload_file_to_s3(image_name, bucket, image_key)
 
                 if True:
                     # if video_upload_successful and image_upload_successful:
