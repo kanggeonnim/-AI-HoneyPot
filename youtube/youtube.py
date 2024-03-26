@@ -35,7 +35,7 @@ def download_video(path):
     yt = YouTube(video_url)
 
     # 쇼츠는 제외
-    if yt.length <= 60 or yt.length > 2400:
+    if yt.length <= 150 or yt.length > 2400:
         return
 
     try:
@@ -53,8 +53,11 @@ def video_to_audio():
         if path.endswith('.mp4'):
             # 특수문자제거
             # save_path = re.sub(r"[^.\uAC00-\uD7A30-9a-zA-Z\s]", "", path)
-            video = VideoFileClip(video_path + path)
-            video.audio.write_audiofile(audio_path + path[:-4] + ".mp3")
+            try:
+                video = VideoFileClip(video_path + path)
+                video.audio.write_audiofile(audio_path + path[:-4] + ".mp3")
+            except Exception as e:
+                print(f'Could not convert {path} to audio file \n{e}')
 
 
 def delete_file(file):
@@ -117,9 +120,10 @@ def summary_script(file):
         이 문서 목록을 기반으로 주요 테마를 식별해 주세요.
         주요 테마에는 해당 타임스탬프도 같이 포함해 주세요.
         타임스탬프 형식은 (시작: 0.123, 끝: 130.643) 입니다.
+        테마 하나마다 주요 정치관련 키워드도 세개 식별해주세요.
         차근차근 단계적으로 생각해주세요.
         아래는 예시 입니다. 
-        이종섭 논란 '수사 vs 해임', 야 '이종섭 책임' 파상공세 (시작: 65.514, 끝: 338.186)
+        총선 및 지방선거 등록 및 선거운동 (키워드:선거보조금, 의석수, 선거운동) (시작: 0.009, 끝: 100.811)
         도움이 되는 답변:"""
 
     # + 주요 테마에 대해서 예시 추가하기.
@@ -130,14 +134,16 @@ def summary_script(file):
         {doc_summaries}
         이 요약들을 바탕으로 주요 테마를 최종적으로 세개에서 다섯개의 중요한 단락으로 요약해 주세요.
         주요 테마에는 타임스탬프도 같이 포함해 주세요.
-        타임스탬프 형식은 (시작: 0.123, 끝: 130.643) 입니다. 
-        주요 테마에는 중복이 없도록 하고 길이가 5분이 넘지않도록 해주세요.
+        타임스탬프 형식은 (시작: 0.123, 끝: 130.643) 입니다.
+        단락 하나마다 주요 정치관련 키워드도 세개 식별해주세요.
+        키워드 형식은 (키워드:박영진 의원, 강북 공천, 한민수 후보) 입니다.
+        단락에는 중복이 없도록 하고 길이가 5분이 넘지않도록 해주세요.
         차근차근 단계적으로 생각해주세요.
         아래는 예시입니다.
-        1. 충청지역 정치적 성향 변화와 선거구의 부동층과 영향 요소에 대한 분석 (시작: 49.514, 끝: 186.186)
-        2. R&D 예산 복원과 충청권 민심에 대한 논의 (시작: 186.186, 끝: 270.043)
-        3. 세종과 대전의 선거전략, 대전 동구와 대덕의 대결, 그리고 새로운 미래 후보의 출마와 기대감에 대한 전망 (시작: 1050.077, 끝: 1237.415)
-        4. 새로운 미래의 충청권 지지율 변화와 민주당과 국민의힘의 선거전략에 대한 분석 (시작: 1425.623, 끝: 1505.247)
+        1. 당정 갈등 및 화해 (키워드: 윤석열 대통령, 한동훈 비대위원장, 황상무 대통령 수석) (시작: 12.5, 끝: 87.602)
+        2. 총선 공천과 비례대표 명단 발표 (키워드: 국민의 미래, 더불어민주연합, 조국 혁신당) (시작: 161.391, 끝: 243.439)
+        3. 강북을 중심으로 한 민주당 공천 논란 (키워드: 박영진 의원, 강북 공천, 한민수 후보) (시작: 325.469, 끝: 422.568)
+    
         도움이 되는 답변:"""
 
     # 방법 1.
@@ -174,7 +180,7 @@ def summary_script(file):
 
     try:
         sum_result = map_reduce_chain.run(split_docs)
-
+        print(sum_result)
         return sum_result
 
     except Exception as e:
@@ -186,31 +192,47 @@ def divide_video():
     dir_list = os.listdir(script_path)
     for path in dir_list:
         sum_result = summary_script(script_path + path[:-4] + ".txt")
-        # sum_result = summary_script("./whisper/script/R&D 삭감에 분노한 충청···김성완 표심에 악영향 이종훈 이상민 고전 (24318)  총선핫플  국회라이브6.txt")
-        #     sum_result = """1. 충청지역 정치적 성향 변화와 선거구의 부동층과 영향 요소에 대한 분석 (시작: 49.514, 끝: 186.186)
-        # 2. R&D 예산 복원과 충청권 민심에 대한 논의 (시작: 186.186, 끝: 250.077)
-        # 3. 충청권 선거 결과 예측과 대전, 세종을 중심으로 한 선거 대결 (시작: 250.077, 끝: 500.486)
-        # 4. 새로운 미래 후보의 출마와 지역별 기대감, 그리고 민주당과 국민의힘의 선거 전략과 경쟁 (시작: 500.486, 끝: 987.756)
-        # 5. 새로운 미래 후보의 영향력과 선거 결과 예측, 그리고 제3지대의 역할과 충청권 선거 동향 (시작: 987.756, 끝: 1455.213)"""
+#         sum_result = """1. 당정 갈등과 정치권 분쟁 (키워드: 윤석열, 한동훈, 황상무) (시작: 12.5, 끝: 87.602)
+# 2. 국민의 미래 비례대표 후보 선정 (키워드: 김혜지, 한지아, 주기환전) (시작: 106.203, 끝: 136.049)
+# 3. 강북 공천 논란과 후보 선출 (키워드: 박영진, 한민수, 박진웅) (시작: 325.469, 끝: 422.568)"""
         sum_list = sum_result.split("\n")
         for (index, line) in enumerate(sum_list):
-            start = line.find('시작:')
-            end = line.find('끝:')
-            sub = line[3:start - 2]
-            start_time = time_formatter(line[start + 4:end - 2])
-            end_time = time_formatter(line[end + 3: -1])
+            # 키워드 추출
+            keyword_start = line.find('키워드:') + 5
+            keyword_end = line[keyword_start:].find(')') + keyword_start
+            keyword_list = line[keyword_start:keyword_end].split(',')
 
+            # 시간 추출
+            time_start = line.find('시작:')
+            time_end = line.find('끝:')
+            sub = line[3:keyword_start - 7]
+            start_time = time_formatter(line[time_start + 4:time_end - 2])
+            end_time = time_formatter(line[time_end + 3: -1])
+            # print(line)
+            # print(line[keyword_start:keyword_end])
+            # print(sub)
+            # print(start_time)
+            # print(end_time)
+            # print(keyword_list)
             # 영상 자르기
             # clip_video = VideoFileClip(
             # video_path + "R&D 삭감에 분노한 충청···김성완 표심에 악영향 이종훈 이상민 고전 (24318)  총선핫플  국회라이브6" + ".mp4").subclip(
             # start_time, end_time)
+
+            # save keywords
+            try:
+                f = open("[KEYWORD]" + script_path + path[:-4] + ".txt", "w", encoding="utf-8")
+                f.write(str(keyword_list))
+                f.close()
+            except Exception as e:
+                print(e)
+                print("Fail to Create KEWORD: " + path[:-4])
             try:
                 clip_video = VideoFileClip(video_path + path[:-4] + ".mp4").subclip(start_time, end_time)
                 clip_video.write_videofile(clip_path + sub + ".mp4", codec='libx264')
             except Exception as e:
                 print(e)
                 print("Fail to Edit VIDEO: " + path[:-4] + ".mp4")
-
 
 def time_formatter(only_second):
     idx = only_second.find('.')
@@ -225,4 +247,4 @@ if __name__ == '__main__':
     video_to_audio()
     audio_to_text_model()
     divide_video()
-    # summary_script("./whisper/script/정봉주·조수진 강북을 잔혹사…장윤미 잘못 인정 함인경 박용진 죽이기 (24322)  여심저격  국회라이브6.txt")
+    # summary_script("./whisper/script/민주당 조수진 사퇴 강북을에 한민수 대변인 전략공천! (24322)  인명진 전 자유한국당 비대위원장  정치한수  국회라이브1.txt")
