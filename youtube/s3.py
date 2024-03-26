@@ -16,6 +16,7 @@ AWS_DEFAULT_REGION = settings.AWS_DEFAULT_REGION
 
 clip_path = settings.CLIP_FILE_PATH
 
+
 def s3_connection():
     try:
         s3 = boto3.client('s3',
@@ -69,10 +70,10 @@ def connect_to_mysql():
 
 def create_table(connection):
     try:
-        cursor = connection.cursor()
+        cursor = connection.cursor(buffered=True)
         cursor.execute("""
             CREATE TABLE IF NOT EXISTS s3_files (
-                id LONG AUTO_INCREMENT PRIMARY KEY,
+                id BIGINT AUTO_INCREMENT PRIMARY KEY,
                 video_name VARCHAR(255) NOT NULL,
                 video_key VARCHAR(255) NOT NULL,
                 image_name VARCHAR(255) NOT NULL,
@@ -87,9 +88,9 @@ def create_table(connection):
 
 def insert_file_metadata(connection, video_name, video_key, image_name, image_key):
     try:
-        cursor = connection.cursor()
+        cursor = connection.cursor(buffered=True)
         cursor.execute("""
-            INSERT INTO s3_files (video_name, video_key, image_name, image_key) VALUES (%s, %s)
+            INSERT INTO s3_files (video_name, video_key, image_name, image_key) VALUES (%s, %s, %s, %s)
         """, (video_name, video_key, image_name, image_key))
         connection.commit()
         print("File metadata inserted into MySQL database successfully!")
@@ -108,50 +109,113 @@ def generate_thumbnail(video_path, thumbnail_path, time_in_seconds):
         print("Failed to generate thumbnail.")
 
 
+def find_id_by_video_name(connection, video_name):
+    try:
+        cursor = connection.cursor(buffered=True)
+        cursor.execute("SELECT id FROM s3_files WHERE video_name = %s", (video_name,))
+        result = cursor.fetchone()
+        if result:
+            return result[0]
+        else:
+            print("No record found with the given video name.")
+            return None
+    except mysql.connector.Error as e:
+        print(f"Error finding id by video name: {e}")
+        return None
+
+
+def create_keyword_table(connection):
+    try:
+        cursor = connection.cursor(buffered=True)
+        cursor.execute("""
+            CREATE TABLE IF NOT EXISTS keyword_table (
+                id BIGINT AUTO_INCREMENT PRIMARY KEY,
+                s3_files_id BIGINT NOT NULL,
+                keyword VARCHAR(255) NOT NULL,
+                FOREIGN KEY (s3_files_id) REFERENCES s3_files(id)
+            )
+        """)
+        connection.commit()
+        print("Table 'keyword_table' created successfully!")
+    except mysql.connector.Error as e:
+        print(f"Error creating keyword table: {e}")
+
+
+def insert_keyword(connection, s3_files_id, keyword):
+    try:
+        cursor = connection.cursor(buffered=True)
+        cursor.execute("""
+            INSERT INTO keyword_table (s3_files_id, keyword) VALUES (%s, %s)
+        """, (s3_files_id, keyword))
+        connection.commit()
+        print("Keyword inserted into keyword table successfully!")
+    except mysql.connector.Error as e:
+        print(f"Error inserting keyword: {e}")
+
+
 def main():
     dir_list = os.listdir(clip_path)
-    # for path in dir_list:
-    #     if path.endswith('.mp4'):
-    try:
-        # S3에 파일 업로드
-        path = "./whisper/clip_video/선거운동 규정 변화와 이에 따른 영향.mp4"
-        unique_id = generate_unique_id()
-        video_name = f'./whisper/{path}'
-        image_name = f'./whisper/{path[:-4]}.jpg'
-        bucket = 'yeouido-honeypot'
-        video_key = f'videos/{unique_id}.mp4'
-        image_key = f'images/{unique_id}.jpg'
-        # thumnail 생성
-        generate_thumbnail(video_name, f'{unique_id}.jpg', 10)  # 10초 시점의 썸네일 생성
+    for path in dir_list:
+        if path.endswith('.mp4'):
+            try:
+                # S3에 파일 업로드
+                unique_id = generate_unique_id()
+                video_name = f'./whisper/clip_video/{path}'
+                image_name = f'./whisper/image/{unique_id}.jpg'
+                bucket = 'yeouido-honeypot'
+                video_key = f'videos/{unique_id}.mp4'
+                image_key = f'images/{unique_id}.jpg'
+                # thumnail 생성
+                generate_thumbnail(video_name, f'{image_name}', 10)  # 10초 시점의 썸네일 생성
 
-        # 영상 업로드
-        video_upload_successful = upload_file_to_s3(video_name, bucket, video_key)
-        # thumnail 업로드
-        image_upload_successful = upload_file_to_s3(image_name, bucket, image_key)
+                # 영상 업로드
+                # video_upload_successful = upload_file_to_s3(video_name, bucket, video_key)
+                # thumnail 업로드
+                # image_upload_successful = upload_file_to_s3(image_name, bucket, image_key)
 
+                if True:
+                    # if video_upload_successful and image_upload_successful:
+                    # MySQL 연결
+                    connection = connect_to_mysql()
+                    if connection:
+                        # 테이블 생성
+                        create_table(connection)
 
-        if video_upload_successful and image_upload_successful:
-            # MySQL 연결
-            connection = connect_to_mysql()
-            if connection:
-                # 테이블 생성
-                create_table(connection)
+                        # 파일 메타데이터 삽입
+                        insert_file_metadata(connection, video_name, video_key, image_name, image_key)
 
-                # 파일 메타데이터 삽입
-                insert_file_metadata(connection, video_name, video_key, image_name, image_key)
+                        s3_files_id = find_id_by_video_name(connection, video_name)
 
-                # 연결 종료
-                connection.close()
-                print("MySQL connection closed.")
+                        if s3_files_id:
+                            # keyword를 저장하는 테이블 생성
+                            create_keyword_table(connection)
+                            dir_list = os.listdir(settings.SCRIPT_FILE_PATH)
+                            # 파일을 읽어서 문자열로 저장
+                            with open(settings.SCRIPT_FILE_PATH + "[KEYWORD]" + path[:-4] + ".txt", "r",
+                                      encoding="utf-8") as file:
+                                file_contents = file.read()
 
-        else:
-            print("Failed to upload file to S3.")
-    except Exception as e:
-        print(f"An error occurred: {e}")
+                            keyword_list = eval(file_contents)
+                            print(keyword_list)
+                            for keyword in keyword_list:
+                                # 키워드 저장
+                                insert_keyword(connection, s3_files_id, keyword)
+                        # 연결 종료
+                        connection.close()
+                        print("MySQL connection closed.")
+
+                else:
+                    print("Failed to upload file to S3.")
+            except Exception as e:
+                print(f"An error occurred: {e}")
 
 
 if __name__ == "__main__":
     main()
-    # 예시 사용법
-    # generate_thumbnail("./whisper/clip_video/선거운동 규정 변화와 이에 따른 영향.mp4", "test1.jpg", 10)  # 10초 시점의 썸네일 생성
+    # unique_id = generate_unique_id()
+    # generate_thumbnail(f'./whisper/clip_video/민생 공약과 선거 전략.mp4', f'./whisper/image/{unique_id}.jpg', 10)  # 10초 시점의 썸네일 생성
+    #
+    # image_upload_successful = upload_file_to_s3(f'./whisper/image/{unique_id}.jpg', 'yeouido-honeypot',
+    #                                             f'images/{unique_id}.jpg')
 
+    # generate_thumbnail("./whisper/clip_video/민생 공약과 선거 전략.mp4", generate_unique_id() + ".jpg", 10)  # 10초 시점의 썸네일 생성
