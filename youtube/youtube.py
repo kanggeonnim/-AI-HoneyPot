@@ -133,11 +133,12 @@ def summary_script(file):
     reduce_template = """다음은 여러 개의 요약입니다:
         {doc_summaries}
         이 요약들을 바탕으로 주요 테마를 최종적으로 세개에서 다섯개의 중요한 단락으로 요약해 주세요.
+        요약은 타임스탬프가 중복되거나 겹치는 구간이 없게 하고 길이는 7분이하로 구성해주세요.
         주요 테마에는 타임스탬프도 같이 포함해 주세요.
         타임스탬프 형식은 (시작: 0.123, 끝: 130.643) 입니다.
         단락 하나마다 주요 정치관련 키워드도 세개 식별해주세요.
+        키워드는 제목에 포함된 단어가 들어가지 않아야합니다.
         키워드 형식은 (키워드:박영진 의원, 강북 공천, 한민수 후보) 입니다.
-        단락에는 중복이 없도록 하고 길이가 5분이 넘지않도록 해주세요.
         차근차근 단계적으로 생각해주세요.
         아래는 예시입니다.
         1. 당정 갈등 및 화해 (키워드: 윤석열 대통령, 한동훈 비대위원장, 황상무 대통령 수석) (시작: 12.5, 끝: 87.602)
@@ -191,60 +192,72 @@ def summary_script(file):
 def divide_video():
     dir_list = os.listdir(script_path)
     for path in dir_list:
-        sum_result = summary_script(script_path + path[:-4] + ".txt")
-#         sum_result = """1. 당정 갈등과 정치권 분쟁 (키워드: 윤석열, 한동훈, 황상무) (시작: 12.5, 끝: 87.602)
-# 2. 국민의 미래 비례대표 후보 선정 (키워드: 김혜지, 한지아, 주기환전) (시작: 106.203, 끝: 136.049)
-# 3. 강북 공천 논란과 후보 선출 (키워드: 박영진, 한민수, 박진웅) (시작: 325.469, 끝: 422.568)"""
-        sum_list = sum_result.split("\n")
-        for (index, line) in enumerate(sum_list):
-            # 키워드 추출
-            keyword_start = line.find('키워드:') + 5
-            keyword_end = line[keyword_start:].find(')') + keyword_start
-            keyword_list = line[keyword_start:keyword_end].split(',')
+        if not path.startswith("[KEYWORD]"):
+            sum_result = summary_script(script_path + path[:-4] + ".txt")
+            #         sum_result = """1. 당정 갈등과 정치권 분쟁 (키워드: 윤석열, 한동훈, 황상무) (시작: 12.5, 끝: 87.602)
+            # 2. 국민의 미래 비례대표 후보 선정 (키워드: 김혜지, 한지아, 주기환전) (시작: 106.203, 끝: 136.049)
+            # 3. 강북 공천 논란과 후보 선출 (키워드: 박영진, 한민수, 박진웅) (시작: 325.469, 끝: 422.568)"""
+            sum_list = sum_result.split("\n")
+            for (index, line) in enumerate(sum_list):
+                # 키워드 추출
+                keyword_start = line.find('키워드:') + 5
+                keyword_end = line[keyword_start:].find(')') + keyword_start
+                keyword_list = line[keyword_start:keyword_end].split(', ')
 
-            # 시간 추출
-            time_start = line.find('시작:')
-            time_end = line.find('끝:')
-            sub = line[3:keyword_start - 7]
-            start_time = time_formatter(line[time_start + 4:time_end - 2])
-            end_time = time_formatter(line[time_end + 3: -1])
-            # print(line)
-            # print(line[keyword_start:keyword_end])
-            # print(sub)
-            # print(start_time)
-            # print(end_time)
-            # print(keyword_list)
-            # 영상 자르기
-            # clip_video = VideoFileClip(
-            # video_path + "R&D 삭감에 분노한 충청···김성완 표심에 악영향 이종훈 이상민 고전 (24318)  총선핫플  국회라이브6" + ".mp4").subclip(
-            # start_time, end_time)
+                # 시간 추출
+                time_start = line.find('시작:')
+                time_end = line.find('끝:')
+                sub = line[3:keyword_start - 7]
+                start_time = time_formatter(line[time_start + 4:time_end - 2])
+                end_time = time_formatter(line[time_end + 3: -1])
+                # print(line)
+                # print(line[keyword_start:keyword_end])
+                # print(sub)
+                # print(start_time)
+                # print(end_time)
+                # print(keyword_list)
+                # 영상 자르기
+                # clip_video = VideoFileClip(
+                # video_path + "R&D 삭감에 분노한 충청···김성완 표심에 악영향 이종훈 이상민 고전 (24318)  총선핫플  국회라이브6" + ".mp4").subclip(
+                # start_time, end_time)
 
-            # save keywords
-            try:
-                f = open("[KEYWORD]" + script_path + path[:-4] + ".txt", "w", encoding="utf-8")
-                f.write(str(keyword_list))
-                f.close()
-            except Exception as e:
-                print(e)
-                print("Fail to Create KEWORD: " + path[:-4])
-            try:
-                clip_video = VideoFileClip(video_path + path[:-4] + ".mp4").subclip(start_time, end_time)
-                clip_video.write_videofile(clip_path + sub + ".mp4", codec='libx264')
-            except Exception as e:
-                print(e)
-                print("Fail to Edit VIDEO: " + path[:-4] + ".mp4")
+                # save keywords
+                try:
+                    f = open(script_path + "[KEYWORD]" + sub + ".txt", "w", encoding="utf-8")
+                    f.write(str(keyword_list))
+                    f.close()
+                except Exception as e:
+                    print(e)
+                    print("Fail to Create KEWORD: " + path[:-4])
+                try:
+                    clip_video = VideoFileClip(video_path + path[:-4] + ".mp4").subclip(start_time, end_time)
+                    clip_video.write_videofile(clip_path + sub + ".mp4", codec='libx264')
+                except Exception as e:
+                    print(e)
+                    print("Fail to Edit VIDEO: " + path[:-4] + ".mp4")
+
 
 def time_formatter(only_second):
-    idx = only_second.find('.')
-    second = only_second[:idx]
-    minutes, seconds = divmod(int(second), 60)
-    hours, minutes = divmod(minutes, 60)
-    return f"{hours:02d}:{minutes:02d}:{seconds:02d}"
+    try:
+        idx = only_second.find('.')
+        if idx == -1:
+            raise ValueError("Invalid time format: missing '.'")
+        second = only_second[:idx]
+        minutes, seconds = divmod(int(second), 60)
+        hours, minutes = divmod(minutes, 60)
+        return f"{hours:02d}:{minutes:02d}:{seconds:02d}"
+    except ValueError as ve:
+        print(f"ValueError: {ve}")
+        return None
+    except Exception as e:
+        print(f"An error occurred: {e}")
+        return None
+
 
 
 if __name__ == '__main__':
-    download_list()
-    video_to_audio()
-    audio_to_text_model()
+    # download_list()
+    # video_to_audio()
+    # audio_to_text_model()
     divide_video()
     # summary_script("./whisper/script/민주당 조수진 사퇴 강북을에 한민수 대변인 전략공천! (24322)  인명진 전 자유한국당 비대위원장  정치한수  국회라이브1.txt")
