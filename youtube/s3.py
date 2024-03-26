@@ -173,8 +173,7 @@ def main():
                 # thumnail 업로드
                 image_upload_successful = upload_file_to_s3(image_name, bucket, image_key)
 
-                if True:
-                    # if video_upload_successful and image_upload_successful:
+                if video_upload_successful and image_upload_successful:
                     # MySQL 연결
                     connection = connect_to_mysql()
                     if connection:
