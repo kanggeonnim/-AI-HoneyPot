@@ -82,7 +82,7 @@ def create_table(connection):
         cursor = connection.cursor(buffered=True)
         cursor.execute("""
             CREATE TABLE IF NOT EXISTS video (
-                id BIGINT AUTO_INCREMENT PRIMARY KEY,
+                video_id BIGINT AUTO_INCREMENT PRIMARY KEY,
                 video_name VARCHAR(255) NOT NULL,
                 video_url VARCHAR(255) NOT NULL,
                 image_url VARCHAR(255) NOT NULL
@@ -120,7 +120,7 @@ def generate_thumbnail(video_path, thumbnail_path, time_in_seconds):
 def find_id_by_video_name(connection, video_name):
     try:
         cursor = connection.cursor(buffered=True)
-        cursor.execute("SELECT id FROM video WHERE video_name = %s", (video_name,))
+        cursor.execute("SELECT video_id FROM video WHERE video_name = %s", (video_name,))
         result = cursor.fetchone()
         if result:
             return result[0]
@@ -137,10 +137,10 @@ def create_keyword_table(connection):
         cursor = connection.cursor(buffered=True)
         cursor.execute("""
             CREATE TABLE IF NOT EXISTS video_keyword (
-                id BIGINT AUTO_INCREMENT PRIMARY KEY,
+                video_keyword_id BIGINT AUTO_INCREMENT PRIMARY KEY,
                 video_id BIGINT NOT NULL,
                 keyword VARCHAR(255) NOT NULL,
-                FOREIGN KEY (video_id) REFERENCES video(id)
+                FOREIGN KEY (video_id) REFERENCES video(video_id)
             )
         """)
         connection.commit()
