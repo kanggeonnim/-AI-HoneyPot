@@ -1,6 +1,6 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from ai.app.apis.api_base import api_router
+from app.apis.api_base import api_router
 
 
 def include_cors(app):
