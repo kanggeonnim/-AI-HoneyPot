@@ -21,6 +21,10 @@ class Settings:
     AWS_ACCESS_KEY_ID: str = config_secret_common["AWS_ACCESS_KEY_ID"]
     AWS_SECRET_ACCESS_KEY: str = config_secret_common["AWS_SECRET_ACCESS_KEY"]
     AWS_DEFAULT_REGION: str = config_secret_common["AWS_DEFAULT_REGION"]
+    DB_HOST: str = config_secret_common["DB_HOST"]
+    DB_USER: str = config_secret_common["DB_USER"]
+    DB_PASSWORD: str = config_secret_common["DB_PASSWORD"]
+    DB_DATABASE: str = config_secret_common["DB_DATABASE"]
 
 
 settings = Settings()
