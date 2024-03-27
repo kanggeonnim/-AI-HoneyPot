@@ -18,7 +18,6 @@ class Settings:
     AUDIO_FILE_PATH: str = config_secret_common["audio_file_path"]
     SCRIPT_FILE_PATH: str = config_secret_common["script_file_path"]
     CLIP_FILE_PATH: str = config_secret_common["clip_file_path"]
-    IMAGE_FILE_PATH: str = config_secret_common["image_file_path"]
     AWS_ACCESS_KEY_ID: str = config_secret_common["AWS_ACCESS_KEY_ID"]
     AWS_SECRET_ACCESS_KEY: str = config_secret_common["AWS_SECRET_ACCESS_KEY"]
     AWS_DEFAULT_REGION: str = config_secret_common["AWS_DEFAULT_REGION"]
@@ -26,8 +25,6 @@ class Settings:
     DB_USER: str = config_secret_common["DB_USER"]
     DB_PASSWORD: str = config_secret_common["DB_PASSWORD"]
     DB_DATABASE: str = config_secret_common["DB_DATABASE"]
-    AWS_CLOUD_FRONT: str = config_secret_common["AWS_CLOUD_FRONT"]
-    DB_PORT: str = config_secret_common["DB_PORT"]
 
 
 settings = Settings()
