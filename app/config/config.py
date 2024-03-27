@@ -25,6 +25,8 @@ class Settings:
     DB_USER: str = config_secret_common["DB_USER"]
     DB_PASSWORD: str = config_secret_common["DB_PASSWORD"]
     DB_DATABASE: str = config_secret_common["DB_DATABASE"]
+    AWS_CLOUD_FRONT: str = config_secret_common["AWS_CLOUD_FRONT"]
+    DB_PORT: str = config_secret_common["DB_PORT"]
 
 
 settings = Settings()
