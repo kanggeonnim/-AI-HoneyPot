@@ -13,6 +13,7 @@ from pytube import YouTube
 
 import view_youtube_list
 from app.config.config import settings
+from s3 import upload_s3
 
 os.environ['PATH'] += os.pathsep + 'C:/Program Files/ffmpeg-6.1.1-full_build-shared/bin'
 
@@ -276,11 +277,13 @@ def delete_all_files():
 
 
 if __name__ == '__main__':
-    download_list()
+    # download_list()
     video_to_audio()
     audio_to_text_model()
     divide_video()
-    s3.upload_s3()
-    delete_all_files()
+
+    # 키워드 카테고리 추출하기
+    # upload_s3()
+    # delete_all_files()
 
     # summary_script("./whisper/script/민주당 조수진 사퇴 강북을에 한민수 대변인 전략공천! (24322)  인명진 전 자유한국당 비대위원장  정치한수  국회라이브1.txt")
