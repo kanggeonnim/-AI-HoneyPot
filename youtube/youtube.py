@@ -22,6 +22,9 @@ audio_path = settings.AUDIO_FILE_PATH
 script_path = settings.SCRIPT_FILE_PATH
 clip_path = settings.CLIP_FILE_PATH
 image_path = settings.IMAGE_FILE_PATH
+OEPNAI_API_KEY = settings.OPENAI_API_KEY
+
+llm = ChatOpenAI(temperature=0, openai_api_key=OEPNAI_API_KEY)
 
 
 def download_list():
@@ -38,9 +41,9 @@ def download_video(path):
     # 쇼츠는 제외
     if yt.length <= 150 or yt.length > 2400:
         return
+    print(yt)
 
     try:
-
         yt.streams.filter(progressive=True, file_extension='mp4').order_by('resolution').desc().first().download(
             video_path)
     except Exception as e:
@@ -117,9 +120,6 @@ def summary_script(file):
 
     docs = [Document(page_content=x) for x in text_splitter.split_text(read_text)]
     split_docs = text_splitter.split_documents(docs)
-
-    openai_api_key = settings.OPENAI_API_KEY
-    llm = ChatOpenAI(temperature=0, openai_api_key=openai_api_key)
 
     # Map 프롬프트
     map_template = """다음은 여러 개의 문서입니다.
@@ -262,6 +262,26 @@ def time_formatter(only_second):
         return None
 
 
+def get_keword_category(keword_list):
+    # 모델 - GPT 3.5 Turbo 선택
+    model = "gpt-3.5-turbo-0125"
+
+    pre_prompt = settings.GPT_PROMPT_KEYWORD
+    # 메시지 설정
+    messages = [{
+        "role": "user",
+        "content": pre_prompt + keword_list,
+    }]
+
+    # ChatGPT API 호출
+    response = llm.chat.completions.create(
+        model=model, messages=messages
+    )
+    openai_result = response.choices[0].message.content
+
+    return openai_result
+
+
 def delete_all_files_in_directory(directory):
     dir_list = os.listdir(directory)
     for path in dir_list:
@@ -282,8 +302,9 @@ if __name__ == '__main__':
     audio_to_text_model()
     divide_video()
 
-    # 키워드 카테고리 추출하기
-    # upload_s3()
+    # 키워드에 카테고리 부여
+    # s3.upload_s3()
     # delete_all_files()
 
+    # download_video("https://www.youtube.com/watch?v=xrQ1vxS7bRo&ab_channel=NATV%EA%B5%AD%ED%9A%8C%EB%B0%A9%EC%86%A1")
     # summary_script("./whisper/script/민주당 조수진 사퇴 강북을에 한민수 대변인 전략공천! (24322)  인명진 전 자유한국당 비대위원장  정치한수  국회라이브1.txt")
