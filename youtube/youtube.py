@@ -8,25 +8,26 @@ from langchain.chat_models import ChatOpenAI
 from langchain.prompts import PromptTemplate
 from langchain_text_splitters import CharacterTextSplitter
 from langchain.schema.document import Document
-from moviepy.editor import VideoFileClip, concatenate_videoclips
-from openai import OpenAI
+from moviepy.editor import VideoFileClip
 from pytube import YouTube
 
 import view_youtube_list
 from ai.app.config.config import settings
+from ai.youtube import s3
 
-os.environ['PATH'] += os.pathsep + 'C:\Program Files\\ffmpeg-6.1.1-full_build-shared\\bin'
+os.environ['PATH'] += os.pathsep + 'C:/Program Files/ffmpeg-6.1.1-full_build-shared/bin'
 
 video_path = settings.VIDEO_FILE_PATH
 audio_path = settings.AUDIO_FILE_PATH
 script_path = settings.SCRIPT_FILE_PATH
 clip_path = settings.CLIP_FILE_PATH
+image_path = settings.IMAGE_FILE_PATH
 
 
 def download_list():
     youtube_list = view_youtube_list.get_youtube_list()
-    for l in youtube_list:
-        download_video(l)
+    for link in youtube_list:
+        download_video(link)
     print(youtube_list)
 
 
@@ -40,8 +41,7 @@ def download_video(path):
 
     try:
 
-        t = (yt.streams.filter(progressive=True, file_extension='mp4').order_by('resolution').desc().first()
-             .download(video_path))
+        yt.streams.filter(progressive=True, file_extension='mp4').order_by('resolution').desc().first().download(video_path)
     except Exception as e:
         print(e)
         print("No video: " + video_url)
@@ -61,8 +61,14 @@ def video_to_audio():
 
 
 def delete_file(file):
-    if os.path.isfile(file):
-        os.remove(file)
+    try:
+        if os.path.isfile(file):
+            os.remove(file)
+            print(f"File '{file}' has been successfully deleted.")
+        else:
+            print(f"File '{file}' does not exist.")
+    except Exception as e:
+        print(f"An error occurred: {str(e)}")
 
 
 def audio_to_text_model():
@@ -255,10 +261,26 @@ def time_formatter(only_second):
         return None
 
 
+def delete_all_files_in_directory(directory):
+    dir_list = os.listdir(directory)
+    for path in dir_list:
+        delete_file(os.path.join(directory, path))
+
+
+def delete_all_files():
+    delete_all_files_in_directory(audio_path)
+    delete_all_files_in_directory(script_path)
+    delete_all_files_in_directory(clip_path)
+    delete_all_files_in_directory(image_path)
+    delete_all_files_in_directory(video_path)
+
 
 if __name__ == '__main__':
-    # download_list()
-    # video_to_audio()
-    # audio_to_text_model()
+    download_list()
+    video_to_audio()
+    audio_to_text_model()
     divide_video()
+    s3.upload_s3()
+    delete_all_files()
+
     # summary_script("./whisper/script/민주당 조수진 사퇴 강북을에 한민수 대변인 전략공천! (24322)  인명진 전 자유한국당 비대위원장  정치한수  국회라이브1.txt")
