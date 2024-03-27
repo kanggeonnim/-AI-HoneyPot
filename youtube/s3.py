@@ -14,7 +14,13 @@ AWS_ACCESS_KEY_ID = settings.AWS_ACCESS_KEY_ID
 AWS_SECRET_ACCESS_KEY = settings.AWS_SECRET_ACCESS_KEY
 AWS_DEFAULT_REGION = settings.AWS_DEFAULT_REGION
 
+DB_HOST = settings.DB_HOST
+DB_USER = settings.DB_USER
+DB_PASSWORD = settings.DB_PASSWORD
+DB_DATABASE = settings.DB_DATABASE
+
 clip_path = settings.CLIP_FILE_PATH
+script_path = settings.SCRIPT_FILE_PATH
 
 
 def s3_connection():
@@ -54,12 +60,13 @@ def upload_file_to_s3(file_name, bucket, key):
 
 
 def connect_to_mysql():
+
     try:
         connection = mysql.connector.connect(
-            host='127.0.0.1',
-            user='root',
-            password='1234',
-            database='db'
+            host=DB_HOST,
+            user=DB_USER,
+            password=DB_PASSWORD,
+            database=DB_DATABASE
         )
         print("Connected to MySQL database!")
         return connection
@@ -188,9 +195,9 @@ def main():
                         if s3_files_id:
                             # keyword를 저장하는 테이블 생성
                             create_keyword_table(connection)
-                            dir_list = os.listdir(settings.SCRIPT_FILE_PATH)
+                            dir_list = os.listdir(script_path)
                             # 파일을 읽어서 문자열로 저장
-                            with open(settings.SCRIPT_FILE_PATH + "[KEYWORD]" + path[:-4] + ".txt", "r",
+                            with open(script_path + "[KEYWORD]" + path[:-4] + ".txt", "r",
                                       encoding="utf-8") as file:
                                 file_contents = file.read()
 
