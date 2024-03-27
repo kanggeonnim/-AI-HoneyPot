@@ -18,6 +18,7 @@ class Settings:
     AUDIO_FILE_PATH: str = config_secret_common["audio_file_path"]
     SCRIPT_FILE_PATH: str = config_secret_common["script_file_path"]
     CLIP_FILE_PATH: str = config_secret_common["clip_file_path"]
+    IMAGE_FILE_PATH: str = config_secret_common["image_file_path"]
     AWS_ACCESS_KEY_ID: str = config_secret_common["AWS_ACCESS_KEY_ID"]
     AWS_SECRET_ACCESS_KEY: str = config_secret_common["AWS_SECRET_ACCESS_KEY"]
     AWS_DEFAULT_REGION: str = config_secret_common["AWS_DEFAULT_REGION"]
