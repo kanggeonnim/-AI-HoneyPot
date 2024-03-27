@@ -2,8 +2,8 @@ from fastapi import APIRouter
 from fastapi.encoders import jsonable_encoder
 from starlette.responses import JSONResponse
 
-from ai.app.models import GptResponseSch, GptRequestSch
-from ai.app.config.config import settings
+from app.models import GptResponseSch, GptRequestSch
+from app.config.config import settings
 from openai import OpenAI
 import json
 
