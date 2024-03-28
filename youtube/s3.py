@@ -70,7 +70,7 @@ def connect_to_mysql():
             password=DB_PASSWORD,
             database=DB_DATABASE
         )
-        print("Connected to MySQL database!")
+        print(f'"Connected to MySQL database!" {DB_HOST}')
         return connection
     except mysql.connector.Error as e:
         print(f"Error connecting to MySQL database: {e}")
@@ -86,6 +86,7 @@ def create_video_table(connection):
                 video_name VARCHAR(255) NOT NULL,
                 video_url VARCHAR(255) NOT NULL,
                 image_url VARCHAR(255) NOT NULL,
+                hits BIGINT DEFAULT 0 NOT NULL,
                 created_at TIMESTAMP DEFAULT NOW() NOT NULL
             )
         """)
@@ -133,10 +134,10 @@ def find_video_id_by_video_name(connection, video_name):
         return None
 
 
-def find_category_id_by_category_name(connection, category):
+def find_category_id_by_category_name(connection, category_name):
     try:
         cursor = connection.cursor(buffered=True)
-        cursor.execute("SELECT keyword_category_id FROM keyword_category WHERE category = %s", (category,))
+        cursor.execute("SELECT keyword_category_id FROM keyword_category WHERE category_name = %s", (category_name,))
         result = cursor.fetchone()
         if result:
             return result[0]
@@ -155,7 +156,7 @@ def create_keyword_table(connection):
             CREATE TABLE IF NOT EXISTS video_keyword (
                 video_keyword_id BIGINT AUTO_INCREMENT PRIMARY KEY,
                 video_id BIGINT NOT NULL,
-                keyword VARCHAR(255) NOT NULL,
+                keyword_name VARCHAR(255) NOT NULL,
                 keyword_category_id BIGINT NOT NULL,
                 FOREIGN KEY (video_id) REFERENCES video(video_id),
                 FOREIGN KEY (keyword_category_id) REFERENCES keyword_category(keyword_category_id)
@@ -167,12 +168,12 @@ def create_keyword_table(connection):
         print(f"Error creating keyword table: {e}")
 
 
-def insert_keyword(connection, video_id, keyword, keyword_category_id):
+def insert_keyword(connection, video_id, keyword_name, keyword_category_id):
     try:
         cursor = connection.cursor(buffered=True)
         cursor.execute("""
-            INSERT INTO video_keyword (video_id, keyword, keyword_category_id) VALUES (%s, %s, %s)
-        """, (video_id, keyword, keyword_category_id))
+            INSERT INTO video_keyword (video_id, keyword_name, keyword_category_id) VALUES (%s, %s, %s)
+        """, (video_id, keyword_name, keyword_category_id))
         connection.commit()
         print("Keyword inserted into keyword table successfully!")
     except mysql.connector.Error as e:
@@ -185,7 +186,7 @@ def create_keyword_category_table(connection):
         cursor.execute("""
             CREATE TABLE IF NOT EXISTS keyword_category (
                 keyword_category_id BIGINT AUTO_INCREMENT PRIMARY KEY,
-                category VARCHAR(255) NOT NULL
+                category_name VARCHAR(255) NOT NULL
             )
         """)
         connection.commit()
@@ -194,12 +195,12 @@ def create_keyword_category_table(connection):
         print(f"Error creating keyword table: {e}")
 
 
-def insert_keyword_category(connection, category):
+def insert_keyword_category(connection, category_name):
     try:
         cursor = connection.cursor(buffered=True)
         cursor.execute("""
-            INSERT INTO keyword_category (category) VALUES (%s)
-        """, (category,))
+            INSERT INTO keyword_category (category_name) VALUES (%s)
+        """, (category_name,))
         connection.commit()
         print("Category inserted into keyword_category table successfully!")
     except mysql.connector.Error as e:
@@ -211,8 +212,8 @@ def init_keyword_category_table():
     if connection:
         create_keyword_category_table(connection)
         category_list = eval(settings.CATEGORY_LIST)
-        for category in category_list:
-            insert_keyword_category(connection, category)
+        for category_name in category_list:
+            insert_keyword_category(connection, category_name)
         connection.close()
         print("MySQL connection closed.")
 
@@ -244,9 +245,6 @@ def upload_s3():
                     if connection:
                         # keyword를 저장하는 테이블 생성
                         create_keyword_table(connection)
-
-                        # 키워드 카테고리 테이블 초기화.
-                        init_keyword_category_table()
 
                         # 테이블 생성
                         create_video_table(connection)
@@ -284,6 +282,8 @@ def upload_s3():
 
 
 if __name__ == "__main__":
+    # 키워드 카테고리 테이블 초기화.
+    init_keyword_category_table()
     upload_s3()
     # unique_id = generate_unique_id()
     # generate_thumbnail(f'./whisper/clip_video/민생 공약과 선거 전략.mp4', f'./whisper/image/{unique_id}.jpg', 10)  # 10초 시점의 썸네일 생성
