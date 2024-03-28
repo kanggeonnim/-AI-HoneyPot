@@ -28,6 +28,7 @@ class Settings:
     DB_DATABASE: str = config_secret_common["DB_DATABASE"]
     AWS_CLOUD_FRONT: str = config_secret_common["AWS_CLOUD_FRONT"]
     DB_PORT: str = config_secret_common["DB_PORT"]
+    CATEGORY_LIST: str = config_secret_common["CATEGORY_LIST"]
 
 
 settings = Settings()
