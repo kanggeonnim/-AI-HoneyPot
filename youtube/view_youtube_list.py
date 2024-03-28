@@ -3,9 +3,8 @@ from googleapiclient.errors import HttpError
 from datetime import datetime, timedelta
 import os
 from app.config.config import settings
-# YouTube Data API의 API key를 입력합니다.
 
-from videoInfo import videoInfo
+# YouTube Data API의 API key를 입력합니다.
 
 youtube_api_key = settings.YOUTUBE_API_KEY
 
@@ -38,6 +37,21 @@ def get_youtube_list():
         )
         response = request.execute()
         nextPageToken = response['nextPageToken']
+
+        # 한번에 전체리스트 가져오기
+        # while ('nextPageToken' in response):
+        #     nextPage = youtube.playlistItems().list(
+        #         part='snippet',
+        #         playlistId=playlist_id,
+        #         maxResults=50,
+        #         pageToken=nextPageToken
+        #     ).excute()
+        #     response['items'] = response['items'] + nextPage['items']
+        #
+        #     if 'nextPageToken' not in nextPage:
+        #         response.pop('nextPageToken', None)
+        #     else:
+        #         nextPageToken = nextPage['nextPageToken']
 
         # save scripts
         f = open('./log/token.txt', "a", encoding="utf-8")
