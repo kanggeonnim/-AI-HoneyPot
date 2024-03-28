@@ -1,5 +1,7 @@
 import os
+import time
 
+import schedule
 import whisperx
 from langchain.chains import ReduceDocumentsChain, MapReduceDocumentsChain
 from langchain.chains.combine_documents.stuff import StuffDocumentsChain
@@ -12,7 +14,7 @@ from moviepy.editor import VideoFileClip
 from openai import OpenAI
 from pytube import YouTube
 
-import view_youtube_list
+from view_youtube_list import get_youtube_list
 from app.config.config import settings
 from s3 import upload_s3
 
@@ -26,7 +28,7 @@ image_path = settings.IMAGE_FILE_PATH
 
 
 def download_list():
-    youtube_list = view_youtube_list.get_youtube_list()
+    youtube_list = get_youtube_list()
     for link in youtube_list:
         download_video(link)
     print(youtube_list)
@@ -122,14 +124,20 @@ def summary_script(file):
     # Map 프롬프트
     map_template = """다음은 여러 개의 문서입니다.
         {docs}
-        이 문서 목록을 기반으로 주요 테마를 식별해 주세요.
-        주요 테마에는 해당 타임스탬프도 같이 포함해 주세요.
-        요약은 타임스탬프가 중복되거나 겹치는 구간이 없게 하고 길이는 10분이하로 구성해주세요.
+        당신은 주어진 문서에서 주요 주제를 추출하는 데 도움이 되는 전문 기자입니다.
+        이 문서 목록을 기반으로 주요 주제를 식별해 주세요.
+        주요 주제에는 해당 타임스탬프도 같이 포함해 주세요.
         타임스탬프 형식은 (시작: 0.123, 끝: 130.643) 입니다.
-        테마 하나마다 주요 정치관련 키워드도 세개 식별해주세요.
+        주제 하나마다 주요 정치관련 키워드도 세개 식별해주세요.
         차근차근 단계적으로 생각해주세요.
+        
         아래는 예시 입니다. 
         총선 및 지방선거 등록 및 선거운동 (키워드:선거보조금, 의석수, 선거운동) (시작: 0.009, 끝: 100.811)
+        
+        주의:
+        주제를 10개 이상 나열하지 마십시오.
+        주제의 길이가 300초를 초과하지 않도록 주의하십시오.
+        
         도움이 되는 답변:"""
 
     # + 주요 테마에 대해서 예시 추가하기.
@@ -138,19 +146,28 @@ def summary_script(file):
     # Reduce 프롬프트
     reduce_template = """다음은 여러 개의 요약입니다:
         {doc_summaries}
-        이 요약들을 바탕으로 주요 테마를 최종적으로 세개에서 다섯개의 중요한 단락으로 요약해 주세요.
-        요약은 타임스탬프가 중복되거나 겹치는 구간이 없게 하고 길이는 10분이하로 구성해주세요.
+        당신은 요약 작성에 능숙한 전문가입니다.
+        번호가 매겨진 요약 목록이 주어졌습니다.
+        요약 목록에서 상위 3가지 중요한 통찰을 추출한 후에, 해당 통찰의 요약을 작성하겠습니다.
         주요 테마에는 타임스탬프도 같이 포함해 주세요.
         타임스탬프 형식은 (시작: 0.123, 끝: 130.643) 입니다.
         단락 하나마다 주요 정치관련 키워드도 세개 식별해주세요.
         키워드는 제목에 포함된 단어가 들어가지 않아야합니다.
         키워드 형식은 (키워드:박영진 의원, 강북 공천, 한민수 후보) 입니다.
         차근차근 단계적으로 생각해주세요.
+        
         아래는 예시입니다.
-        1. 당정 갈등 및 화해 (키워드: 윤석열 대통령, 한동훈 비대위원장, 황상무 대통령 수석) (시작: 12.5, 끝: 87.602)
-        2. 총선 공천과 비례대표 명단 발표 (키워드: 국민의 미래, 더불어민주연합, 조국 혁신당) (시작: 161.391, 끝: 243.439)
-        3. 강북을 중심으로 한 민주당 공천 논란 (키워드: 박영진 의원, 강북 공천, 한민수 후보) (시작: 325.469, 끝: 422.568)
+        1. 당정 갈등 및 화해 (키워드: 윤석열 대통령, 한동훈 비대위원장, 황상무 대통령 수석)
+         - 호주대사 이종석의 사건으로 인한 수사가 진행 중이며, 이에 따라 출국이 불투명해지고 있다. (시작: 0.009, 끝: 146.954)
+        2. 총선 공천과 비례대표 명단 발표 (키워드: 국민의 미래, 더불어민주연합, 조국 혁신당)
+         - 민주당 내부에서 박용진 의원과 조수진 변호사 간의 공천을 둘러싼 정치적 갈등이 고조되고 있다. (시작: 186.937, 끝: 441.596)
+        3. 강북을 중심으로 한 민주당 공천 논란 (키워드: 박영진 의원, 강북 공천, 한민수 후보)
+         - 조국신당을 중심으로 한 정권심판론과 정책 대결이 치열하게 전개되고 있으며, 이는 선거 전략에 영향을 미칠 것으로 보인다. (시작: 973.268, 끝: 1049.48)
     
+        주의:
+        요약을 3개 이상 나열하지 마십시오.
+        주제의 길이가 300초를 초과하지 않도록 주의하십시오.
+        
         도움이 되는 답변:"""
 
     # 방법 1.
@@ -161,7 +178,7 @@ def summary_script(file):
     # 문단 별로 스크립트를 요약하고 타임스탬프를 기입하기
     # 요약된 스크립트 리스트에서 중요하다고 생각하는 부분을 뽑아내기
     reduce_prompt = PromptTemplate.from_template(reduce_template)
-
+    # print(f'reduce_prompt: {reduce_prompt}')
     llm = ChatOpenAI(temperature=0, openai_api_key=settings.OPENAI_API_KEY)
 
     # 1. Reduce chain
@@ -190,6 +207,13 @@ def summary_script(file):
     try:
         sum_result = map_reduce_chain.run(split_docs)
         print(sum_result)
+        train_path = "./fine_tuning/train.jsonl"
+
+        # data = {
+        #     "prompt": ,
+        #
+        # }
+
         return sum_result
 
     except Exception as e:
@@ -314,6 +338,17 @@ def delete_all_files():
     delete_all_files_in_directory(video_path)
 
 
+def parse_video():
+    print("in youtube parsing")
+    download_list()
+    video_to_audio()
+    audio_to_text_model()
+    divide_video()
+    get_keyword_category_list()
+    upload_s3()
+    delete_all_files()
+
+
 if __name__ == '__main__':
     # download_list()
     # video_to_audio()
@@ -323,22 +358,12 @@ if __name__ == '__main__':
     # upload_s3()
     # delete_all_files()
 
-    dir_list = os.listdir(script_path)
-    for path in dir_list:
-        if path.startswith("[KEYWORD]"):
-            with open(script_path + path, "r", encoding="utf-8") as file:
-                content = file.read()
+    # schedule.every(5).seconds.do(parse_video)
+    # schedule.every().day.at("00:30").do(parse_video)  # 매일 10:30에
+    # print("in main")
+    # while True:
+    #     schedule.run_pending()
+    #     time.sleep(1)
 
-            # {}로 감싸진 부분 추출
-            start_index = content.find('{')
-            end_index = content.rfind('}')
-            extracted_part = content[start_index:end_index + 1]
-
-            # JSON 형식으로 변환
-            dictionary_data = eval(extracted_part)
-
-            for key, value in dictionary_data.items():
-                print(f'Key: {key}, Value: {value}')
-            # print(get_keyword_category("['국회 이전', '정책 비전', '세종시']"))
     # download_video("https://www.youtube.com/watch?v=xrQ1vxS7bRo&ab_channel=NATV%EA%B5%AD%ED%9A%8C%EB%B0%A9%EC%86%A1")
-    # summary_script("./whisper/script/민주당 조수진 사퇴 강북을에 한민수 대변인 전략공천! (24322)  인명진 전 자유한국당 비대위원장  정치한수  국회라이브1.txt")
+    summary_script("./whisper/script/국민의미래 선대위원장에 인요한 선임! 한동훈과 투톱 (24325)  천정배 전 법무부장관  정치한수  국회라이브1.txt")
