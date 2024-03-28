@@ -77,7 +77,7 @@ def connect_to_mysql():
         return None
 
 
-def create_table(connection):
+def create_video_table(connection):
     try:
         cursor = connection.cursor(buffered=True)
         cursor.execute("""
@@ -118,10 +118,25 @@ def generate_thumbnail(video_path, thumbnail_path, time_in_seconds):
         print("Failed to generate thumbnail.")
 
 
-def find_id_by_video_name(connection, video_name):
+def find_video_id_by_video_name(connection, video_name):
     try:
         cursor = connection.cursor(buffered=True)
         cursor.execute("SELECT video_id FROM video WHERE video_name = %s", (video_name,))
+        result = cursor.fetchone()
+        if result:
+            return result[0]
+        else:
+            print("No record found with the given video name.")
+            return None
+    except mysql.connector.Error as e:
+        print(f"Error finding id by video name: {e}")
+        return None
+
+
+def find_category_id_by_category_name(connection, category):
+    try:
+        cursor = connection.cursor(buffered=True)
+        cursor.execute("SELECT keyword_category_id FROM keyword_category WHERE category = %s", (category,))
         result = cursor.fetchone()
         if result:
             return result[0]
@@ -141,7 +156,9 @@ def create_keyword_table(connection):
                 video_keyword_id BIGINT AUTO_INCREMENT PRIMARY KEY,
                 video_id BIGINT NOT NULL,
                 keyword VARCHAR(255) NOT NULL,
-                FOREIGN KEY (video_id) REFERENCES video(video_id)
+                keyword_category_id BIGINT NOT NULL,
+                FOREIGN KEY (video_id) REFERENCES video(video_id),
+                FOREIGN KEY (keyword_category_id) REFERENCES keyword_category(keyword_category_id)
             )
         """)
         connection.commit()
@@ -150,16 +167,54 @@ def create_keyword_table(connection):
         print(f"Error creating keyword table: {e}")
 
 
-def insert_keyword(connection, video_id, keyword):
+def insert_keyword(connection, video_id, keyword, keyword_category_id):
     try:
         cursor = connection.cursor(buffered=True)
         cursor.execute("""
-            INSERT INTO video_keyword (video_id, keyword) VALUES (%s, %s)
-        """, (video_id, keyword))
+            INSERT INTO video_keyword (video_id, keyword, keyword_category_id) VALUES (%s, %s, %s)
+        """, (video_id, keyword, keyword_category_id))
         connection.commit()
         print("Keyword inserted into keyword table successfully!")
     except mysql.connector.Error as e:
         print(f"Error inserting keyword: {e}")
+
+
+def create_keyword_category_table(connection):
+    try:
+        cursor = connection.cursor(buffered=True)
+        cursor.execute("""
+            CREATE TABLE IF NOT EXISTS keyword_category (
+                keyword_category_id BIGINT AUTO_INCREMENT PRIMARY KEY,
+                category VARCHAR(255) NOT NULL
+            )
+        """)
+        connection.commit()
+        print("Table 'keyword_category' created successfully!")
+    except mysql.connector.Error as e:
+        print(f"Error creating keyword table: {e}")
+
+
+def insert_keyword_category(connection, category):
+    try:
+        cursor = connection.cursor(buffered=True)
+        cursor.execute("""
+            INSERT INTO keyword_category (category) VALUES (%s)
+        """, (category,))
+        connection.commit()
+        print("Category inserted into keyword_category table successfully!")
+    except mysql.connector.Error as e:
+        print(f"Error inserting keyword_category: {e}")
+
+
+def init_keyword_category_table():
+    connection = connect_to_mysql()
+    if connection:
+        create_keyword_category_table(connection)
+        category_list = eval(settings.CATEGORY_LIST)
+        for category in category_list:
+            insert_keyword_category(connection, category)
+        connection.close()
+        print("MySQL connection closed.")
 
 
 def upload_s3():
@@ -187,28 +242,40 @@ def upload_s3():
                     # MySQL 연결
                     connection = connect_to_mysql()
                     if connection:
+                        # keyword를 저장하는 테이블 생성
+                        create_keyword_table(connection)
+
+                        # 키워드 카테고리 테이블 초기화.
+                        init_keyword_category_table()
+
                         # 테이블 생성
-                        create_table(connection)
+                        create_video_table(connection)
 
                         # 파일 메타데이터 삽입
                         insert_file_metadata(connection, path, AWS_CLOUD_FRONT + video_url, AWS_CLOUD_FRONT + image_url)
 
-                        video_id = find_id_by_video_name(connection, path)
+                        video_id = find_video_id_by_video_name(connection, path)
 
                         if video_id:
-                            # keyword를 저장하는 테이블 생성
-                            create_keyword_table(connection)
                             dir_list = os.listdir(script_path)
                             # 파일을 읽어서 문자열로 저장
                             with open(script_path + "[KEYWORD]" + path[:-4] + ".txt", "r",
                                       encoding="utf-8") as file:
                                 file_contents = file.read()
 
-                            keyword_list = eval(file_contents)
-                            print(keyword_list)
-                            for keyword in keyword_list:
-                                # 키워드 저장
-                                insert_keyword(connection, video_id, keyword)
+                            # {}로 감싸진 부분 추출
+                            start_index = file_contents.find('{')
+                            end_index = file_contents.rfind('}')
+                            extracted_part = file_contents[start_index:end_index + 1]
+
+                            # dictionary 형식으로 변환
+                            dictionary_data = eval(extracted_part)
+
+                            # 키워드 저장
+                            for key, value in dictionary_data.items():
+                                category_id = find_category_id_by_category_name(connection, value)
+                                # print(f'Key: {key}, Value: {value} for category: {category_id}')
+                                insert_keyword(connection, video_id, key, category_id)
                         # 연결 종료
                         connection.close()
                         print("MySQL connection closed.")
