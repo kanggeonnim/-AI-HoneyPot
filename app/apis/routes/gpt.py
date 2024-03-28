@@ -15,8 +15,7 @@ async def translate_by_gpt_router(category: str, req: GptRequestSch):
     # 선택한 카테고리에 따라 프롬프트 설정
     prompt_map = {
         "bill": settings.GPT_PROMPT_BILL,
-        "issue": settings.GPT_PROMPT_ISSUE,
-        "news": settings.GPT_PROMPT_NEWS
+        "issue": settings.GPT_PROMPT_ISSUE
     }
     pre_prompt = prompt_map.get(category)
     if not pre_prompt:

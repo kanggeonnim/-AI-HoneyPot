@@ -298,12 +298,12 @@ def delete_all_files():
 
 if __name__ == '__main__':
     # download_list()
-    video_to_audio()
-    audio_to_text_model()
-    divide_video()
+    # video_to_audio()
+    # audio_to_text_model()
+    # divide_video()
 
     # 키워드에 카테고리 부여
-    # s3.upload_s3()
+    upload_s3()
     # delete_all_files()
 
     # download_video("https://www.youtube.com/watch?v=xrQ1vxS7bRo&ab_channel=NATV%EA%B5%AD%ED%9A%8C%EB%B0%A9%EC%86%A1")
