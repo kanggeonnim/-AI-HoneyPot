@@ -9,6 +9,7 @@ from langchain.prompts import PromptTemplate
 from langchain_text_splitters import CharacterTextSplitter
 from langchain.schema.document import Document
 from moviepy.editor import VideoFileClip
+from openai import OpenAI
 from pytube import YouTube
 
 import view_youtube_list
@@ -22,9 +23,6 @@ audio_path = settings.AUDIO_FILE_PATH
 script_path = settings.SCRIPT_FILE_PATH
 clip_path = settings.CLIP_FILE_PATH
 image_path = settings.IMAGE_FILE_PATH
-OEPNAI_API_KEY = settings.OPENAI_API_KEY
-
-llm = ChatOpenAI(temperature=0, openai_api_key=OEPNAI_API_KEY)
 
 
 def download_list():
@@ -164,6 +162,8 @@ def summary_script(file):
     # 요약된 스크립트 리스트에서 중요하다고 생각하는 부분을 뽑아내기
     reduce_prompt = PromptTemplate.from_template(reduce_template)
 
+    llm = ChatOpenAI(temperature=0, openai_api_key=settings.OPENAI_API_KEY)
+
     # 1. Reduce chain
     reduce_chain = LLMChain(llm=llm, prompt=reduce_prompt)
 
@@ -228,15 +228,16 @@ def divide_video():
                 # clip_video = VideoFileClip(
                 # video_path + "R&D 삭감에 분노한 충청···김성완 표심에 악영향 이종훈 이상민 고전 (24318)  총선핫플  국회라이브6" + ".mp4").subclip(
                 # start_time, end_time)
-
                 # save keywords
+
                 try:
                     f = open(script_path + "[KEYWORD]" + sub + ".txt", "w", encoding="utf-8")
                     f.write(str(keyword_list))
                     f.close()
                 except Exception as e:
                     print(e)
-                    print("Fail to Create KEWORD: " + path[:-4])
+                    print("Fail to Create KEYWORD: " + path[:-4])
+
                 try:
                     clip_video = VideoFileClip(video_path + path[:-4] + ".mp4").subclip(start_time, end_time)
                     clip_video.write_videofile(clip_path + sub + ".mp4", codec='libx264')
@@ -262,7 +263,9 @@ def time_formatter(only_second):
         return None
 
 
-def get_keword_category(keword_list):
+def get_keyword_category(keyword_list):
+    client = OpenAI(api_key=settings.OPENAI_API_KEY)
+
     # 모델 - GPT 3.5 Turbo 선택
     model = "gpt-3.5-turbo-0125"
 
@@ -270,16 +273,31 @@ def get_keword_category(keword_list):
     # 메시지 설정
     messages = [{
         "role": "user",
-        "content": pre_prompt + keword_list,
+        "content": pre_prompt + str(keyword_list),
     }]
 
     # ChatGPT API 호출
-    response = llm.chat.completions.create(
-        model=model, messages=messages
+    response = client.chat.completions.create(
+        model=model,
+        messages=messages
     )
     openai_result = response.choices[0].message.content
 
     return openai_result
+
+
+def get_keyword_category_list():
+    dir_list = os.listdir(script_path)
+    for path in dir_list:
+        if path.startswith("[KEYWORD]"):
+            with open(script_path + path, "r", encoding="utf-8") as file:
+                file_contents = file.read()
+
+            # 카테고리 추출
+            keyword_list = eval(file_contents)
+
+            with open(script_path + path, "a", encoding="utf-8") as file:
+                file.write('\n' + get_keyword_category(file_contents) + '\n')
 
 
 def delete_all_files_in_directory(directory):
@@ -301,10 +319,26 @@ if __name__ == '__main__':
     # video_to_audio()
     # audio_to_text_model()
     # divide_video()
-
-    # 키워드에 카테고리 부여
-    upload_s3()
+    # get_keyword_category_list()
+    # upload_s3()
     # delete_all_files()
 
+    dir_list = os.listdir(script_path)
+    for path in dir_list:
+        if path.startswith("[KEYWORD]"):
+            with open(script_path + path, "r", encoding="utf-8") as file:
+                content = file.read()
+
+            # {}로 감싸진 부분 추출
+            start_index = content.find('{')
+            end_index = content.rfind('}')
+            extracted_part = content[start_index:end_index + 1]
+
+            # JSON 형식으로 변환
+            dictionary_data = eval(extracted_part)
+
+            for key, value in dictionary_data.items():
+                print(f'Key: {key}, Value: {value}')
+            # print(get_keyword_category("['국회 이전', '정책 비전', '세종시']"))
     # download_video("https://www.youtube.com/watch?v=xrQ1vxS7bRo&ab_channel=NATV%EA%B5%AD%ED%9A%8C%EB%B0%A9%EC%86%A1")
     # summary_script("./whisper/script/민주당 조수진 사퇴 강북을에 한민수 대변인 전략공천! (24322)  인명진 전 자유한국당 비대위원장  정치한수  국회라이브1.txt")
