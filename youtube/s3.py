@@ -84,6 +84,7 @@ def create_video_table(connection):
             CREATE TABLE IF NOT EXISTS video (
                 video_id BIGINT AUTO_INCREMENT PRIMARY KEY,
                 video_name VARCHAR(255) NOT NULL,
+                video_summary VARCHAR(500) NOT NULL,
                 video_url VARCHAR(255) NOT NULL,
                 image_url VARCHAR(255) NOT NULL,
                 hits BIGINT DEFAULT 0 NOT NULL,
@@ -96,12 +97,12 @@ def create_video_table(connection):
         print(f"Error creating table: {e}")
 
 
-def insert_file_metadata(connection, video_name, video_url, image_url):
+def insert_file_metadata(connection, video_name, video_summary, video_url, image_url):
     try:
         cursor = connection.cursor(buffered=True)
         cursor.execute("""
-            INSERT INTO video (video_name, video_url, image_url) VALUES (%s, %s, %s)
-        """, (video_name, video_url, image_url))
+            INSERT INTO video (video_name, video_summary, video_url, image_url) VALUES (%s, %s, %s, %s)
+        """, (video_name, video_summary, video_url, image_url))
         connection.commit()
         print("File metadata inserted into MySQL database successfully!")
     except mysql.connector.Error as e:
@@ -249,23 +250,24 @@ def upload_s3():
                         # 테이블 생성
                         create_video_table(connection)
 
+                        # KEYWORD 파일 열기
+                        with open(script_path + "[KEYWORD]" + path[:-4] + ".txt", "r", encoding="utf-8") as file:
+                            file_contents = file.read()
+
+                        # 영상의 요약내용 추출
+                        summary = file_contents.split("\n")[1]
+
                         # 파일 메타데이터 삽입
-                        insert_file_metadata(connection, path, AWS_CLOUD_FRONT + video_url, AWS_CLOUD_FRONT + image_url)
+                        insert_file_metadata(connection, path[:-4], summary, AWS_CLOUD_FRONT + video_url,
+                                             AWS_CLOUD_FRONT + image_url)
 
                         video_id = find_video_id_by_video_name(connection, path)
 
                         if video_id:
-                            dir_list = os.listdir(script_path)
-                            # 파일을 읽어서 문자열로 저장
-                            with open(script_path + "[KEYWORD]" + path[:-4] + ".txt", "r",
-                                      encoding="utf-8") as file:
-                                file_contents = file.read()
-
-                            # {}로 감싸진 부분 추출
+                            # 키워드 속성 추출 : {}로 감싸진 부분 추출
                             start_index = file_contents.find('{')
                             end_index = file_contents.rfind('}')
                             extracted_part = file_contents[start_index:end_index + 1]
-
                             # dictionary 형식으로 변환
                             dictionary_data = eval(extracted_part)
 
@@ -283,7 +285,7 @@ def upload_s3():
 
 if __name__ == "__main__":
     # 키워드 카테고리 테이블 초기화.
-    init_keyword_category_table()
+    # init_keyword_category_table()
     upload_s3()
     # unique_id = generate_unique_id()
     # generate_thumbnail(f'./whisper/clip_video/민생 공약과 선거 전략.mp4', f'./whisper/image/{unique_id}.jpg', 10)  # 10초 시점의 썸네일 생성
