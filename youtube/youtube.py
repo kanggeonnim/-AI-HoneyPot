@@ -1,4 +1,5 @@
 import os
+import re
 import time
 
 import schedule
@@ -108,18 +109,28 @@ def audio_to_text_model():
 
 
 def summary_script(file):
-    print("요약 문서: " + file)
     # 문서요약하기
     with open(file, "r",
               encoding="utf-8") as f:
         read_text = f.read()
 
     text_splitter = CharacterTextSplitter.from_tiktoken_encoder(
-        chunk_size=4000, chunk_overlap=0
+        chunk_size=4000, chunk_overlap=150, separator='}'
     )
 
     docs = [Document(page_content=x) for x in text_splitter.split_text(read_text)]
     split_docs = text_splitter.split_documents(docs)
+
+    # print(docs)
+    # for doc in docs:
+    #     print(doc)
+    #
+    # print("sprit_docs")
+    # print(split_docs)
+    # for doc in split_docs:
+    #     print(doc)
+    #
+    # return
 
     # Map 프롬프트
     map_template = """다음은 여러 개의 문서입니다.
@@ -131,9 +142,15 @@ def summary_script(file):
         주제 하나마다 주요 정치관련 키워드도 세개 식별해주세요.
         차근차근 단계적으로 생각해주세요.
         
-        아래는 예시 입니다. 
-        총선 및 지방선거 등록 및 선거운동 (키워드:선거보조금, 의석수, 선거운동) (시작: 0.009, 끝: 100.811)
+        형식:
+        1. 주제 (키워드: 키워드 1, 키워드 2, 키워드 3)
+         - 주제에 대한 설명입니다.
+        ...
         
+        예시:
+        1. 강북을 중심으로 한 민주당 공천 논란 (키워드: 박영진 의원, 강북 공천, 한민수 후보)
+         - 조국신당을 중심으로 한 정권심판론과 정책 대결이 치열하게 전개되고 있으며, 이는 선거 전략에 영향을 미칠 것으로 보인다. (시작: 973.268, 끝: 1049.48)
+    
         주의:
         주제를 10개 이상 나열하지 마십시오.
         주제의 길이가 300초를 초과하지 않도록 주의하십시오.
@@ -156,7 +173,12 @@ def summary_script(file):
         키워드 형식은 (키워드:박영진 의원, 강북 공천, 한민수 후보) 입니다.
         차근차근 단계적으로 생각해주세요.
         
-        아래는 예시입니다.
+        형식:
+        1. 주제 (키워드: 키워드 1, 키워드 2, 키워드 3)
+         - 주제에 대한 설명입니다.
+        ...
+        
+        예시:
         1. 당정 갈등 및 화해 (키워드: 윤석열 대통령, 한동훈 비대위원장, 황상무 대통령 수석)
          - 호주대사 이종석의 사건으로 인한 수사가 진행 중이며, 이에 따라 출국이 불투명해지고 있다. (시작: 0.009, 끝: 146.954)
         2. 총선 공천과 비례대표 명단 발표 (키워드: 국민의 미래, 더불어민주연합, 조국 혁신당)
@@ -226,48 +248,67 @@ def divide_video():
     for path in dir_list:
         if not path.startswith("[KEYWORD]"):
             sum_result = summary_script(script_path + path[:-4] + ".txt")
-            #         sum_result = """1. 당정 갈등과 정치권 분쟁 (키워드: 윤석열, 한동훈, 황상무) (시작: 12.5, 끝: 87.602)
-            # 2. 국민의 미래 비례대표 후보 선정 (키워드: 김혜지, 한지아, 주기환전) (시작: 106.203, 끝: 136.049)
-            # 3. 강북 공천 논란과 후보 선출 (키워드: 박영진, 한민수, 박진웅) (시작: 325.469, 끝: 422.568)"""
+            #             sum_result = """1. 총선 대진표와 후보자 등록 (키워드: 총선 대진표, 후보자 등록, 비례정당)
+            #  - 총선 대진표가 마감되고 후보자 등록이 완료되었으며, 비례정당 후보들이 다양한 정치 이슈에 대해 살펴본다. (시작: 0.009, 끝: 24.36)
+            #
+            # 2. 후보자 공천과 경선 과정 (키워드: 후보 공천, 경선, 민주주의)
+            #  - 후보자 공천과 경선 과정에서 각당의 공정성과 민주주의에 대한 문제가 제기되며, 후보자들의 자질과 검증에 대한 우려가 표현된다. (시작: 45.179, 끝: 70.316)
+            #
+            # 3. 대통령 인기도와 총선 전망 (키워드: 대통령 인기도, 총선 전망, 야당 승리)
+            #  - 대통령의 인기도와 국민의 평가, 그리고 총선의 전망과 변수에 대한 논의가 이루어지며, 야당의 승리 가능성과 대통령의 행보에 대한 예측이 제시된다. (시작: 129.053, 끝: 201.783)
+            # """
             sum_list = sum_result.split("\n")
+            line1 = ""
+            line2 = ""
+
             for (index, line) in enumerate(sum_list):
-                # 키워드 추출
-                keyword_start = line.find('키워드:') + 5
-                keyword_end = line[keyword_start:].find(')') + keyword_start
-                keyword_list = line[keyword_start:keyword_end].split(', ')
+                sort_line = line.replace(" ", "")
 
-                # 시간 추출
-                time_start = line.find('시작:')
-                time_end = line.find('끝:')
-                sub = line[3:keyword_start - 7]
-                start_time = time_formatter(line[time_start + 4:time_end - 2])
-                end_time = time_formatter(line[time_end + 3: -1])
-                # print(line)
-                # print(line[keyword_start:keyword_end])
-                # print(sub)
-                # print(start_time)
-                # print(end_time)
-                # print(keyword_list)
-                # 영상 자르기
-                # clip_video = VideoFileClip(
-                # video_path + "R&D 삭감에 분노한 충청···김성완 표심에 악영향 이종훈 이상민 고전 (24318)  총선핫플  국회라이브6" + ".mp4").subclip(
-                # start_time, end_time)
-                # save keywords
+                # 개행에 대한 처리
+                if len(sort_line) == 0:
+                    continue
 
-                try:
-                    f = open(script_path + "[KEYWORD]" + sub + ".txt", "w", encoding="utf-8")
-                    f.write(str(keyword_list))
-                    f.close()
-                except Exception as e:
-                    print(e)
-                    print("Fail to Create KEYWORD: " + path[:-4])
+                if sort_line[0].isdigit():
+                    line1 = line + ""
+                elif sort_line.startswith("-"):
+                    line2 = line + ""
 
-                try:
-                    clip_video = VideoFileClip(video_path + path[:-4] + ".mp4").subclip(start_time, end_time)
-                    clip_video.write_videofile(clip_path + sub + ".mp4", codec='libx264')
-                except Exception as e:
-                    print(e)
-                    print("Fail to Edit VIDEO: " + path[:-4] + ".mp4")
+                    # 키워드 추출
+                    keyword_start = line1.find('키워드:') + 5
+                    keyword_end = line1[keyword_start:].find(')') + keyword_start
+                    keyword_list = line1[keyword_start:keyword_end].split(', ')
+
+                    # 시간 추출
+                    time_start = line2.find('시작:')
+                    time_end = line2.find('끝:')
+                    start_time = time_formatter(line2[time_start + 4:time_end - 2])
+                    end_time = time_formatter(line2[time_end + 3: -1])
+
+                    sub_end = re.search(r'\d+\.', line1).end()
+                    sub = line1[sub_end + 1:keyword_start - 7]
+
+                    summary = line2[line2.find('-') + 2:time_start - 2]
+                    # print(f'제목-{sub}')
+                    # print(f'시작-{start_time}')
+                    # print(f'끝-{end_time}')
+                    # print(f'요약-{summary}')
+                    # print(keyword_list)
+
+                    try:
+                        f = open(script_path + "[KEYWORD]" + sub + ".txt", "w", encoding="utf-8")
+                        f.write(str(keyword_list) + '\n')
+                        f.write(summary + '\n')
+                        f.close()
+                    except Exception as e:
+                        print(e)
+                        print("Fail to Create KEYWORD: " + path[:-4])
+
+                    try:
+                        clip_video = VideoFileClip(video_path + path[:-4] + ".mp4").subclip(start_time, end_time)
+                        clip_video.write_videofile(clip_path + sub + ".mp4", codec='libx264')
+                    except Exception as e:
+                        print(e)
+                        print("Fail to Edit VIDEO: " + path[:-4] + ".mp4")
 
 
 def time_formatter(only_second):
@@ -317,11 +358,13 @@ def get_keyword_category_list():
             with open(script_path + path, "r", encoding="utf-8") as file:
                 file_contents = file.read()
 
+            content = file_contents[:file_contents.find(']') + 1]
+
             # 카테고리 추출
-            keyword_list = eval(file_contents)
+            keyword_list = eval(content)
 
             with open(script_path + path, "a", encoding="utf-8") as file:
-                file.write('\n' + get_keyword_category(file_contents) + '\n')
+                file.write('\n' + get_keyword_category(keyword_list) + '\n')
 
 
 def delete_all_files_in_directory(directory):
@@ -340,13 +383,13 @@ def delete_all_files():
 
 def parse_video():
     print("in youtube parsing")
-    download_list()
-    video_to_audio()
-    audio_to_text_model()
-    divide_video()
-    get_keyword_category_list()
-    upload_s3()
-    delete_all_files()
+    # download_list()
+    # video_to_audio()
+    # audio_to_text_model()
+    # divide_video()
+    # get_keyword_category_list()
+    # upload_s3()
+    # delete_all_files()
 
 
 if __name__ == '__main__':
@@ -366,4 +409,4 @@ if __name__ == '__main__':
     #     time.sleep(1)
 
     # download_video("https://www.youtube.com/watch?v=xrQ1vxS7bRo&ab_channel=NATV%EA%B5%AD%ED%9A%8C%EB%B0%A9%EC%86%A1")
-    summary_script("./whisper/script/국민의미래 선대위원장에 인요한 선임! 한동훈과 투톱 (24325)  천정배 전 법무부장관  정치한수  국회라이브1.txt")
+    summary_script("./whisper/script/민주당 조수진 사퇴 강북을에 한민수 대변인 전략공천! (24322)  인명진 전 자유한국당 비대위원장  정치한수  국회라이브1.txt")
