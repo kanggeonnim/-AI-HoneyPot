@@ -393,12 +393,12 @@ def parse_video():
 
 
 if __name__ == '__main__':
-    # download_list()
-    # video_to_audio()
-    # audio_to_text_model()
-    # divide_video()
-    # get_keyword_category_list()
-    # upload_s3()
+    download_list()
+    video_to_audio()
+    audio_to_text_model()
+    divide_video()
+    get_keyword_category_list()
+    upload_s3()
     # delete_all_files()
 
     # schedule.every(5).seconds.do(parse_video)
@@ -409,4 +409,4 @@ if __name__ == '__main__':
     #     time.sleep(1)
 
     # download_video("https://www.youtube.com/watch?v=xrQ1vxS7bRo&ab_channel=NATV%EA%B5%AD%ED%9A%8C%EB%B0%A9%EC%86%A1")
-    summary_script("./whisper/script/민주당 조수진 사퇴 강북을에 한민수 대변인 전략공천! (24322)  인명진 전 자유한국당 비대위원장  정치한수  국회라이브1.txt")
+    # summary_script("./whisper/script/민주당 조수진 사퇴 강북을에 한민수 대변인 전략공천! (24322)  인명진 전 자유한국당 비대위원장  정치한수  국회라이브1.txt")

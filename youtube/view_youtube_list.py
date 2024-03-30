@@ -30,10 +30,21 @@ def get_youtube_list():
         #     maxResults=50
         # )
 
+        # request = youtube.playlistItems().list(
+        #     part='snippet',
+        #     playlistId=playlist_id,
+        #     maxResults=50
+        # )
+        # response = request.execute()
+        # nextPageToken = response['nextPageToken']
+        #
+        # nextPageToken 이어서 받기
+        nextPageToken = 'EAAajgFQVDpDRElpRURkQlJqWTJPRVE1UVVNd01UZ3lPREVvQVVqTHJONlQ1NWFGQTFBQldrVWlRMmxLVVZSRlJtWlZSRmt5VlRKa1ZWZEdUWGRVYTNSeFZXc3dNbGRIVGxaa1JWcERWVlphVFZkcmVITlRWbWcyUldkM1NXdGFlVlp6UVZsUkxVNVhMV3RuUlNJ'
         request = youtube.playlistItems().list(
             part='snippet',
             playlistId=playlist_id,
-            maxResults=50
+            maxResults=50,
+            pageToken=nextPageToken
         )
         response = request.execute()
         nextPageToken = response['nextPageToken']
