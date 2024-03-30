@@ -3,6 +3,7 @@ import uuid
 import boto3
 import mysql.connector
 import cv2
+import datetime
 from moviepy.editor import VideoFileClip
 
 from botocore.exceptions import ClientError  # boto3에서 발생하는 예외를 처리하기 위해 추가
@@ -85,6 +86,7 @@ def create_video_table(connection):
                 video_id BIGINT AUTO_INCREMENT PRIMARY KEY,
                 video_name VARCHAR(255) NOT NULL,
                 video_summary VARCHAR(500) NOT NULL,
+                video_time VarCHAR(255) NOT NULL,
                 video_url VARCHAR(255) NOT NULL,
                 image_url VARCHAR(255) NOT NULL,
                 hits BIGINT DEFAULT 0 NOT NULL,
@@ -97,12 +99,12 @@ def create_video_table(connection):
         print(f"Error creating table: {e}")
 
 
-def insert_file_metadata(connection, video_name, video_summary, video_url, image_url):
+def insert_file_metadata(connection, video_name, video_summary, video_time, video_url, image_url):
     try:
         cursor = connection.cursor(buffered=True)
         cursor.execute("""
-            INSERT INTO video (video_name, video_summary, video_url, image_url) VALUES (%s, %s, %s, %s)
-        """, (video_name, video_summary, video_url, image_url))
+            INSERT INTO video (video_name, video_summary, video_time, video_url, image_url) VALUES (%s, %s, %s, %s, %s)
+        """, (video_name, video_summary, video_time, video_url, image_url))
         connection.commit()
         print("File metadata inserted into MySQL database successfully!")
     except mysql.connector.Error as e:
@@ -219,6 +221,22 @@ def init_keyword_category_table():
         print("MySQL connection closed.")
 
 
+def get_video_time(video_path):
+    # create video capture object
+    data = cv2.VideoCapture(video_path)
+
+    # count the number of frames
+    frames = data.get(cv2.CAP_PROP_FRAME_COUNT)
+    fps = data.get(cv2.CAP_PROP_FPS)
+
+    # calculate duration of the video
+    seconds = round(frames / fps)
+    video_time = datetime.timedelta(seconds=seconds)
+    print(f"duration in seconds: {seconds}")
+    print(f"video time: {video_time}")
+    return video_time
+
+
 def upload_s3():
     dir_list = os.listdir(clip_path)
     for path in dir_list:
@@ -234,13 +252,14 @@ def upload_s3():
                 # thumnail 생성
                 generate_thumbnail(video_path, f'{image_path}', 10)  # 10초 시점의 썸네일 생성
 
+                video_time = get_video_time(video_path)
                 # 영상 업로드
-                video_upload_successful = upload_file_to_s3(video_path, bucket, video_url)
-                # thumnail 업로드
-                image_upload_successful = upload_file_to_s3(image_path, bucket, image_url)
+                # video_upload_successful = upload_file_to_s3(video_path, bucket, video_url)
+                # # thumnail 업로드
+                # image_upload_successful = upload_file_to_s3(image_path, bucket, image_url)
 
-                # if True:
-                if video_upload_successful and image_upload_successful:
+                if True:
+                    # if video_upload_successful and image_upload_successful:
                     # MySQL 연결
                     connection = connect_to_mysql()
                     if connection:
@@ -258,10 +277,10 @@ def upload_s3():
                         summary = file_contents.split("\n")[1]
 
                         # 파일 메타데이터 삽입
-                        insert_file_metadata(connection, path[:-4], summary, AWS_CLOUD_FRONT + video_url,
+                        insert_file_metadata(connection, path[:-4], summary, video_time, AWS_CLOUD_FRONT + video_url,
                                              AWS_CLOUD_FRONT + image_url)
 
-                        video_id = find_video_id_by_video_name(connection, path)
+                        video_id = find_video_id_by_video_name(connection, path[:-4])
 
                         if video_id:
                             # 키워드 속성 추출 : {}로 감싸진 부분 추출
@@ -284,6 +303,8 @@ def upload_s3():
 
 
 if __name__ == "__main__":
+    # print(get_video_time("../youtube/whisper/clip_video/철도지화화 경쟁.mp4"))
+
     # 키워드 카테고리 테이블 초기화.
     # init_keyword_category_table()
     upload_s3()
