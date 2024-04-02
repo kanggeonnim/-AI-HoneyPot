@@ -2,7 +2,7 @@
 # Edit at https://www.toptal.com/developers/gitignore?templates=python,pycharm,macos,windows
 
 # Video
-whisper/
+whisper/src/
 app/env/
 
 ### Python ###
