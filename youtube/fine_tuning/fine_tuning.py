@@ -2,7 +2,7 @@ import json
 import mysql.connector
 
 from app.config.config import settings
-from youtube.s3 import connect_to_mysql
+from ai_video.s3 import connect_to_mysql
 
 
 def find_bills():
